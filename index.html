@@ -242,6 +242,23 @@
       box-shadow: 0 0 24px rgba(92, 243, 255, 0.16);
     }
 
+    .fullscreen-button {
+      position: fixed;
+      right: 14px;
+      top: max(14px, env(safe-area-inset-top));
+      z-index: 7;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(92, 243, 255, 0.52);
+      border-radius: 50%;
+      color: var(--cyan);
+      background: rgba(4, 10, 24, 0.78);
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(92, 243, 255, 0.16);
+    }
+
     .action-buttons {
       position: fixed;
       right: max(30px, env(safe-area-inset-right));
@@ -415,6 +432,7 @@
   </div>
 
   <button class="restart" id="restart" type="button">Reiniciar</button>
+  <button class="fullscreen-button" id="fullscreenButton" type="button" aria-label="Alternar tela cheia">⛶</button>
   <button class="info-button" id="infoButton" type="button" aria-label="Informações das habilidades">i</button>
   <div class="action-buttons">
     <button class="ability" id="tCellButton" type="button" aria-label="A: marcação de alvo ADCC">
@@ -485,6 +503,7 @@
     const infoOverlay = document.getElementById("infoOverlay");
     const startButton = document.getElementById("start");
     const restartButton = document.getElementById("restart");
+    const fullscreenButton = document.getElementById("fullscreenButton");
     const infoButton = document.getElementById("infoButton");
     const closeInfoButton = document.getElementById("closeInfo");
     const playAgainButton = document.getElementById("playAgain");
@@ -1522,10 +1541,16 @@
 
     function drawNkDendriticScene(t) {
       drawLungTissue(1);
-      for (let i = 0; i < 10; i++) drawProteinFragment(width * (0.25 + i * 0.055), height * (0.45 + Math.sin(i) * 0.08), t + i);
       const dx = width * (0.20 + t * 0.48);
       const dy = height * (0.62 - Math.sin(t * Math.PI) * 0.18);
-      drawDendriticCell(dx, dy, t);
+      for (let i = 0; i < 10; i++) {
+        const collect = Math.min(1, Math.max(0, (t - i * 0.055) / 0.45));
+        ctx.save();
+        ctx.globalAlpha = 1 - smoothstep(collect);
+        drawProteinFragment(width * (0.25 + i * 0.055), height * (0.45 + Math.sin(i) * 0.08), t + i);
+        ctx.restore();
+      }
+      drawDendriticCell(dx, dy, t, smoothstep(t));
       ctx.strokeStyle = "rgba(92,243,255,0.48)";
       ctx.lineWidth = 8;
       ctx.lineCap = "round";
@@ -1551,12 +1576,42 @@
       ctx.strokeStyle = "rgba(92,243,255,0.48)";
       ctx.lineWidth = 3;
       ctx.stroke();
-      for (let i = 0; i < 20; i++) {
-        const a = i * 2.1 + t * 3;
-        const rr = (0.055 + (i % 5) * 0.040) * Math.min(width, height);
-        drawSmallLymphocyte(lx + Math.cos(a) * rr * 1.35, ly + Math.sin(a * 1.3) * rr * 0.82, i, 18 + (i % 4) * 3);
+      const targets = Array.from({ length: 5 }, (_, i) => {
+        const angle = -0.92 + i * 0.46;
+        return {
+          x: lx + Math.cos(angle) * Math.min(width, height) * 0.20,
+          y: ly + Math.sin(angle) * Math.min(width, height) * 0.15,
+          color: i % 2 === 0 ? "#5cf3ff" : "#ff8fb9",
+        };
+      });
+      const route = [{ x: width * 0.20, y: height * 0.52 }, ...targets.map((target) => ({ x: target.x - 58, y: target.y }))];
+      const step = Math.min(4, Math.floor(t * 5));
+      const local = Math.min(1, Math.max(0, t * 5 - step));
+      const deliveredCount = Math.min(5, step + (local > 0.72 ? 1 : 0));
+      for (let i = 0; i < targets.length; i++) {
+        drawPresentationLymphocyte(targets[i].x, targets[i].y, i, i < deliveredCount, targets[i].color);
       }
-      drawDendriticCell(width * (0.22 + t * 0.23), height * 0.52, t);
+      const from = route[step] || route[route.length - 1];
+      const to = route[Math.min(step + 1, route.length - 1)];
+      const move = smoothstep(local);
+      const dcX = from.x + (to.x - from.x) * move;
+      const dcY = from.y + (to.y - from.y) * move;
+      const remainingAntigens = Math.max(0, 5 - deliveredCount);
+      drawDendriticCell(dcX, dcY, t, 1, remainingAntigens);
+      if (step < targets.length && local > 0.52 && local < 0.88) {
+        const target = targets[step];
+        const press = smoothstep((local - 0.52) / 0.36);
+        const x = dcX + (target.x - dcX) * (0.62 + press * 0.28);
+        const y = dcY + (target.y - dcY) * (0.62 + press * 0.28);
+        drawProteinFragment(x, y, t + step);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,216,79,0.65)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, 34 + Math.sin(t * 18) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
       if (t > 0.52) {
         for (let i = 0; i < 18; i++) {
           const a = (i / 18) * Math.PI * 2;
@@ -1699,7 +1754,92 @@
       ctx.restore();
     }
 
-    function drawDendriticCell(x, y, t) {
+    function drawAntigenPresentation(fromX, fromY, toX, toY, progress, seed) {
+      const p = Math.min(1, Math.max(0, progress - seed * 0.06));
+      const sx = fromX + (toX - fromX) * 0.28;
+      const sy = fromY + (toY - fromY) * 0.22;
+      const ex = fromX + (toX - fromX) * 0.84;
+      const ey = fromY + (toY - fromY) * 0.84;
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,216,79,0.52)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 8]);
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const q = Math.min(1, Math.max(0, p));
+      const x = sx + (ex - sx) * q;
+      const y = sy + (ey - sy) * q + Math.sin(q * Math.PI + seed) * 8;
+      drawProteinFragment(x, y, seed);
+
+      if (p > 0.72) {
+        ctx.globalAlpha = Math.min(1, (p - 0.72) / 0.28);
+        ctx.fillStyle = "#ffd84f";
+        ctx.strokeStyle = "rgba(255,255,255,0.72)";
+        ctx.lineWidth = 1.5;
+        const a = seed;
+        ctx.save();
+        ctx.translate(toX + Math.cos(a) * 20, toY + Math.sin(a) * 17);
+        ctx.rotate(a * 0.4);
+        ctx.beginPath();
+        ctx.rect(-5, -5, 10, 10);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function drawPresentationLymphocyte(x, y, seed, active, color) {
+      ctx.save();
+      ctx.translate(x, y);
+      const pulse = active ? 1 + Math.sin(performance.now() * 0.012 + seed) * 0.08 : 1;
+      const r = 25 * pulse;
+      ctx.globalAlpha = active ? 1 : 0.42;
+      ctx.shadowColor = active ? color : "rgba(92,243,255,0.18)";
+      ctx.shadowBlur = active ? 22 : 4;
+      ctx.fillStyle = active ? "rgba(216,249,255,0.96)" : "rgba(100,126,150,0.46)";
+      ctx.strokeStyle = active ? color : "rgba(160,180,200,0.28)";
+      ctx.lineWidth = active ? 3.5 : 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = active ? color : "rgba(84,96,120,0.55)";
+      ctx.beginPath();
+      ctx.arc(-r * 0.18, -r * 0.10, r * 0.26, 0, Math.PI * 2);
+      ctx.arc(r * 0.18, r * 0.15, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      if (active) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 8 + Math.sin(performance.now() * 0.016 + seed) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#ffd84f";
+        ctx.font = "900 12px Inter, Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("ATIVO", 0, -r - 18);
+      }
+      ctx.restore();
+    }
+
+    function dendriticArmPoint(x, y, index, t, reach = 1) {
+      const a = (index / 9) * Math.PI * 2 + Math.sin(t * 5) * 0.2;
+      return {
+        x: x + Math.cos(a) * 66 * reach,
+        y: y + Math.sin(a) * 66 * reach,
+        angle: a,
+      };
+    }
+
+    function drawDendriticCell(x, y, t, antigenLoad = 0, antigenCount = 9) {
       ctx.save();
       ctx.translate(x, y);
       ctx.strokeStyle = "rgba(92,243,255,0.86)";
@@ -1707,10 +1847,29 @@
       ctx.lineCap = "round";
       for (let i = 0; i < 9; i++) {
         const a = (i / 9) * Math.PI * 2 + Math.sin(t * 5) * 0.2;
+        const endX = Math.cos(a) * 66;
+        const endY = Math.sin(a) * 66;
         ctx.beginPath();
         ctx.moveTo(Math.cos(a) * 18, Math.sin(a) * 18);
-        ctx.quadraticCurveTo(Math.cos(a + 0.35) * 42, Math.sin(a + 0.35) * 42, Math.cos(a) * 66, Math.sin(a) * 66);
+        ctx.quadraticCurveTo(Math.cos(a + 0.35) * 42, Math.sin(a + 0.35) * 42, endX, endY);
         ctx.stroke();
+        const armLoad = Math.min(1, Math.max(0, antigenLoad * 1.35 - i * 0.11));
+        if (armLoad > 0 && i < antigenCount) {
+          ctx.save();
+          ctx.globalAlpha = armLoad;
+          ctx.translate(endX, endY);
+          ctx.rotate(a + t);
+          ctx.shadowColor = "#ffd84f";
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = "#ffd84f";
+          ctx.strokeStyle = "rgba(255,255,255,0.72)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.rect(-5.5, -5.5, 11, 11);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
       }
       ctx.fillStyle = "#d8f9ff";
       ctx.strokeStyle = "#5cf3ff";
@@ -2127,7 +2286,7 @@
           scene: "Cena 1 - O paciente",
           title: "Uma ameaça silenciosa",
           narration: "Em algum lugar dentro deste paciente, uma ameaça está crescendo.",
-          detail: "A câmera se aproxima do corpo e entra no pulmão, onde o tumor começa a ocupar espaço entre os tecidos.",
+          detail: "Dentro do tecido pulmonar, células alteradas começam a formar uma massa tumoral silenciosa.",
           accent: "#5cf3ff",
         };
       }
@@ -3025,8 +3184,15 @@
     });
     window.addEventListener("keyup", (event) => keys.delete(event.key));
 
-    startButton.addEventListener("click", resetGame);
+    startButton.addEventListener("click", () => {
+      enterFullscreen();
+      resetGame();
+    });
     restartButton.addEventListener("click", resetGame);
+    fullscreenButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleFullscreen();
+    });
     infoButton.addEventListener("click", (event) => {
       event.stopPropagation();
       openInfo();
@@ -3076,7 +3242,45 @@
       updateHud();
     }
 
+    function getFullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+    }
+
+    function enterFullscreen() {
+      const root = document.documentElement;
+      try {
+        if (getFullscreenElement()) return;
+        const request = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+        if (request) request.call(root);
+      } catch (error) {
+        // Alguns navegadores móveis só permitem fullscreen em condições específicas.
+      }
+    }
+
+    function exitFullscreen() {
+      try {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) exit.call(document);
+      } catch (error) {
+        // Mantém o jogo funcionando mesmo se o navegador negar a saída do fullscreen.
+      }
+    }
+
+    function toggleFullscreen() {
+      if (getFullscreenElement()) exitFullscreen();
+      else enterFullscreen();
+    }
+
+    function syncFullscreenButton() {
+      fullscreenButton.textContent = getFullscreenElement() ? "×" : "⛶";
+      fullscreenButton.setAttribute("aria-label", getFullscreenElement() ? "Sair da tela cheia" : "Abrir tela cheia");
+    }
+
+    document.addEventListener("fullscreenchange", syncFullscreenButton);
+    document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
+
     resize();
+    syncFullscreenButton();
     draw();
     requestAnimationFrame(loop);
   </script>
