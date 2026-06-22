@@ -1,0 +1,3384 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Natural Killer vs Tumor | Jogo teste</title>
+  <style>
+    :root {
+      --bg: #020716;
+      --cyan: #5cf3ff;
+      --blue: #28a9ff;
+      --green: #46f5a8;
+      --pink: #ff4f9a;
+      --purple: #a87cff;
+      --white: #f4f8ff;
+      --muted: #9fb2cc;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--white);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      touch-action: none;
+      user-select: none;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 15%, rgba(40, 169, 255, 0.22), transparent 34%),
+        radial-gradient(circle at 75% 72%, rgba(168, 124, 255, 0.18), transparent 34%),
+        linear-gradient(180deg, #020817 0%, #050b1d 48%, #09051b 100%);
+    }
+
+    .game-shell {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      isolation: isolate;
+    }
+
+    .hud {
+      position: relative;
+      z-index: 4;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+      padding: max(14px, env(safe-area-inset-top)) 16px 8px;
+      pointer-events: none;
+    }
+
+    .title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .title strong {
+      color: var(--cyan);
+      font-size: clamp(14px, 2.4vw, 18px);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .title span {
+      color: var(--muted);
+      font-size: clamp(12px, 2vw, 14px);
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .pill {
+      min-width: 88px;
+      border: 1px solid rgba(92, 243, 255, 0.26);
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: rgba(4, 10, 24, 0.72);
+      color: var(--white);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+      box-shadow: 0 0 24px rgba(40, 169, 255, 0.10);
+    }
+
+    .pill span {
+      color: var(--green);
+    }
+
+    .status-pill {
+      display: grid;
+      gap: 5px;
+      min-width: 112px;
+    }
+
+    .mini-bar {
+      display: block;
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(244, 248, 255, 0.16);
+    }
+
+    .mini-bar b {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #46f5a8, #5cf3ff);
+      transition: width 180ms ease;
+    }
+
+    .boss-bar b {
+      width: 0%;
+      background: linear-gradient(90deg, #ffd84f, #ff4f9a);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(1, 4, 12, 0.72);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel {
+      width: min(680px, 92vw);
+      border: 1px solid rgba(92, 243, 255, 0.30);
+      border-radius: 14px;
+      padding: clamp(22px, 4vw, 34px);
+      background: linear-gradient(145deg, rgba(6, 15, 34, 0.95), rgba(20, 10, 38, 0.92));
+      box-shadow: 0 32px 110px rgba(0, 0, 0, 0.58);
+      text-align: center;
+    }
+
+    .panel h1 {
+      margin: 0 0 12px;
+      color: var(--blue);
+      font-size: clamp(34px, 7vw, 72px);
+      line-height: 0.96;
+    }
+
+    .panel p {
+      margin: 0 auto 20px;
+      max-width: 540px;
+      color: var(--muted);
+      font-size: clamp(15px, 2.4vw, 18px);
+      line-height: 1.45;
+    }
+
+    .info-panel {
+      text-align: left;
+    }
+
+    .info-panel h1 {
+      text-align: center;
+      font-size: clamp(28px, 5vw, 52px);
+    }
+
+    .info-panel ul {
+      margin: 0 0 20px;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .info-panel li {
+      border: 1px solid rgba(92, 243, 255, 0.20);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(4, 10, 24, 0.48);
+      color: var(--white);
+      line-height: 1.35;
+      font-size: clamp(13px, 2.1vw, 15px);
+    }
+
+    .info-panel b {
+      color: var(--cyan);
+    }
+
+    .panel button,
+    .restart {
+      border: 1px solid rgba(70, 245, 168, 0.55);
+      border-radius: 999px;
+      padding: 12px 22px;
+      color: var(--bg);
+      background: var(--green);
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 34px rgba(70, 245, 168, 0.22);
+    }
+
+    .panel-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .panel .secondary {
+      color: var(--cyan);
+      background: rgba(4, 10, 24, 0.74);
+      border-color: rgba(92, 243, 255, 0.42);
+    }
+
+    .restart {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 5;
+      padding: 10px 14px;
+      color: var(--green);
+      background: rgba(4, 10, 24, 0.68);
+      pointer-events: auto;
+    }
+
+    .info-button {
+      position: fixed;
+      right: 14px;
+      top: calc(max(14px, env(safe-area-inset-top)) + 86px);
+      z-index: 7;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(92, 243, 255, 0.52);
+      border-radius: 50%;
+      color: var(--cyan);
+      background: rgba(4, 10, 24, 0.78);
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(92, 243, 255, 0.16);
+    }
+
+    .fullscreen-button {
+      position: fixed;
+      right: 14px;
+      top: max(14px, env(safe-area-inset-top));
+      z-index: 7;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(92, 243, 255, 0.52);
+      border-radius: 50%;
+      color: var(--cyan);
+      background: rgba(4, 10, 24, 0.78);
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(92, 243, 255, 0.16);
+    }
+
+    .action-buttons {
+      position: fixed;
+      right: max(30px, env(safe-area-inset-right));
+      bottom: calc(max(18px, env(safe-area-inset-bottom)) + 178px);
+      z-index: 6;
+      width: 142px;
+      height: 142px;
+      pointer-events: auto;
+    }
+
+    .ability {
+      --charge: 0deg;
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      border: 2px solid rgba(92, 243, 255, 0.38);
+      border-radius: 50%;
+      padding: 0;
+      color: var(--white);
+      background:
+        conic-gradient(var(--green) var(--charge), rgba(92, 243, 255, 0.16) 0),
+        rgba(4, 10, 24, 0.82);
+      display: grid;
+      place-items: center;
+      font-size: 21px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 26px rgba(40, 169, 255, 0.12);
+      transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease;
+    }
+
+    #tCellButton {
+      left: 45px;
+      top: 0;
+    }
+
+    #shieldButton {
+      right: 0;
+      top: 45px;
+    }
+
+    #specialButton {
+      left: 0;
+      top: 45px;
+    }
+
+    #healButton {
+      left: 45px;
+      bottom: 0;
+    }
+
+    .ability::before {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-radius: 50%;
+      background: rgba(4, 10, 24, 0.94);
+      border: 1px solid rgba(92, 243, 255, 0.22);
+    }
+
+    .ability .icon,
+    .ability .key {
+      position: relative;
+      z-index: 1;
+    }
+
+    .ability .key {
+      position: absolute;
+      left: -7px;
+      top: -7px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--bg);
+      background: var(--cyan);
+      font-size: 13px;
+      line-height: 1;
+      box-shadow: 0 0 18px rgba(92, 243, 255, 0.28);
+    }
+
+    .ability:active {
+      transform: scale(0.94);
+    }
+
+    .ability.ready {
+      border-color: rgba(70, 245, 168, 0.78);
+      box-shadow: 0 0 34px rgba(70, 245, 168, 0.28);
+    }
+
+    .ability.defending {
+      border-color: rgba(92, 243, 255, 0.88);
+      box-shadow: 0 0 42px rgba(92, 243, 255, 0.38);
+    }
+
+    .hidden { display: none; }
+
+    .touch-hint {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      z-index: 4;
+      transform: translateX(-50%);
+      color: rgba(244, 248, 255, 0.56);
+      font-size: 12px;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    @media (max-width: 700px) {
+      .hud {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        justify-content: flex-start;
+      }
+
+      .pill {
+        min-width: 74px;
+        padding: 7px 8px;
+        font-size: 11px;
+      }
+
+      .restart {
+        display: none;
+      }
+
+      .action-buttons {
+        left: auto;
+        right: max(26px, env(safe-area-inset-right));
+        bottom: calc(max(18px, env(safe-area-inset-bottom)) + clamp(154px, 24vh, 220px));
+        width: 124px;
+        height: 124px;
+      }
+
+      .ability {
+        width: 46px;
+        height: 46px;
+        font-size: 17px;
+      }
+
+      #tCellButton,
+      #healButton {
+        left: 39px;
+      }
+
+      #shieldButton,
+      #specialButton {
+        top: 39px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <header class="hud">
+      <div class="title">
+        <strong>Natural Killer vs Tumor</strong>
+        <span>A missão do sistema imunológico contra células tumorais.</span>
+      </div>
+      <div class="stats" aria-live="polite">
+        <div class="pill">Fase <span id="phase">1</span>/6</div>
+        <div class="pill">Alvos <span id="targets">10</span></div>
+        <div class="pill status-pill">Vidas <span id="life">♥ ♥ ♥ · 100%</span><i class="mini-bar"><b id="lifeBar"></b></i></div>
+        <div class="pill status-pill">Boss <span id="bossLife">-</span><i class="mini-bar boss-bar"><b id="bossBar"></b></i></div>
+      </div>
+    </header>
+    <canvas id="game" aria-label="Jogo Natural Killer contra tumor"></canvas>
+  </div>
+
+  <button class="restart" id="restart" type="button">Reiniciar</button>
+  <button class="fullscreen-button" id="fullscreenButton" type="button" aria-label="Alternar tela cheia">⛶</button>
+  <button class="info-button" id="infoButton" type="button" aria-label="Informações das habilidades">i</button>
+  <div class="action-buttons">
+    <button class="ability" id="tCellButton" type="button" aria-label="A: marcação de alvo ADCC">
+      <span class="key">A</span><span class="icon">⌖</span>
+    </button>
+    <button class="ability" id="shieldButton" type="button" aria-label="B: modo de combate por citocinas">
+      <span class="key">B</span><span class="icon">⚡</span>
+    </button>
+    <button class="ability" id="specialButton" type="button" aria-label="C: chamado para reforços IFN-gama">
+      <span class="key">C</span><span class="icon">✹</span>
+    </button>
+    <button class="ability" id="healButton" type="button" aria-label="D: detector de camuflagem tumoral" title="D: detector de camuflagem tumoral">
+      <span class="key">D</span><span class="icon">◎</span>
+    </button>
+  </div>
+  <div class="touch-hint">ESPAÇO dispara perforina/granzimas. Setas movem. A: ADCC (Antibody-Dependent Cellular Cytotoxicity) · B: combate · C: IFN-γ/reforços · D: detector.</div>
+
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h1 id="startTitle">Natural Killer vs Tumor</h1>
+      <p id="startText">A missão do sistema imunológico começa dentro de um paciente: o tumor deixa pistas, a dendrítica investiga e a célula NK entra na batalha.</p>
+      <div class="panel-actions">
+        <button id="start" type="button">START</button>
+        <button class="secondary" id="skipStory" type="button">Pular história</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="winOverlay">
+    <div class="panel">
+      <h1>Win</h1>
+      <p><strong>Parabéns! Você venceu o câncer!</strong></p>
+      <button id="playAgain" type="button">Jogar novamente</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="loseOverlay">
+    <div class="panel">
+      <h1>Você perdeu</h1>
+      <p><strong>O golpe inflamatório do boss atingiu você.</strong></p>
+      <button id="tryAgain" type="button">Tentar novamente</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="infoOverlay">
+    <div class="panel info-panel">
+      <h1>Habilidades da NK</h1>
+      <ul>
+        <li><b>A - ADCC (Antibody-Dependent Cellular Cytotoxicity):</b> um plasmócito aparece, lança anticorpos e marca células tumorais. Inimigos marcados ficam dourados e recebem dano dobrado.</li>
+        <li><b>B - Modo de combate:</b> citocinas ativam a NK. Ela se move mais rápido, ataca mais rápido, ganha alcance e também se protege do golpe inflamatório do boss.</li>
+        <li><b>C - IFN-γ / reforços:</b> a NK libera interferon-gama e convoca células imunes auxiliares para atacar os tumores por alguns segundos.</li>
+        <li><b>D - Detector de camuflagem:</b> revela células tumorais que perderam MHC I para se esconder. Sem revelar, elas quase não podem ser atingidas.</li>
+        <li><b>ESPAÇO:</b> ataque básico com perforina e granzimas, representado por esferas azul-arroxeadas tóxicas.</li>      </ul>
+      <button id="closeInfo" type="button">Voltar ao jogo</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const phaseEl = document.getElementById("phase");
+    const targetsEl = document.getElementById("targets");
+    const lifeEl = document.getElementById("life");
+    const lifeBarEl = document.getElementById("lifeBar");
+    const bossLifeEl = document.getElementById("bossLife");
+    const bossBarEl = document.getElementById("bossBar");
+    const startOverlay = document.getElementById("startOverlay");
+    const winOverlay = document.getElementById("winOverlay");
+    const loseOverlay = document.getElementById("loseOverlay");
+    const infoOverlay = document.getElementById("infoOverlay");
+    const startButton = document.getElementById("start");
+    const startTitle = document.getElementById("startTitle");
+    const startText = document.getElementById("startText");
+    const skipStoryButton = document.getElementById("skipStory");
+    const restartButton = document.getElementById("restart");
+    const fullscreenButton = document.getElementById("fullscreenButton");
+    const infoButton = document.getElementById("infoButton");
+    const closeInfoButton = document.getElementById("closeInfo");
+    const playAgainButton = document.getElementById("playAgain");
+    const tryAgainButton = document.getElementById("tryAgain");
+    const specialButton = document.getElementById("specialButton");
+    const tCellButton = document.getElementById("tCellButton");
+    const shieldButton = document.getElementById("shieldButton");
+    const healButton = document.getElementById("healButton");
+    const actionButtons = document.querySelector(".action-buttons");
+    const touchHint = document.querySelector(".touch-hint");
+
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let running = false;
+    let pausedByInfo = false;
+    let wasRunningBeforeInfo = false;
+    let waitingMissionStart = false;
+    let introTime = 0;
+    let introDuration = 70;
+    let phase = 1;
+    let lives = 3;
+    let recovering = false;
+    let lastTime = 0;
+    let shootCooldown = 0;
+    let specialCharge = 0;
+    let specialCooldown = 4;
+    let healCharge = 0;
+    let healCooldown = 5.2;
+    let tCellCharge = 0;
+    let tCellCooldown = 7;
+    let tCellTime = 0;
+    let tCellKills = 0;
+    let tCellKillTimer = 0;
+    let tCell = null;
+    let adccTime = 0;
+    let combatTime = 0;
+    let reinforceTime = 0;
+    let scanTime = 0;
+    let immuneAllies = [];
+    let shieldTime = 0;
+    let shieldCooldown = 0;
+    let cytokineBurst = 0;
+    let bossSpecialCooldown = 3.5;
+    let bossBeam = 0;
+    let bossBeamX = 0;
+    let bossInflameCooldown = 8;
+    let bossInflameWarning = 0;
+    let bossInflameBlast = 0;
+    let fireworks = [];
+    let keys = new Set();
+
+    const player = {
+      x: 0,
+      y: 0,
+      radius: 22,
+      speed: 520,
+      life: 100,
+      invulnerable: 0,
+    };
+
+    let antibodies = [];
+    let enemies = [];
+    let enemyShots = [];
+    let macrophages = [];
+    let particles = [];
+    let boss = null;
+    let stars = [];
+
+    function playerHomeY() {
+      return height - (width < 700 ? Math.max(190, height * 0.26) : Math.max(104, height * 0.16));
+    }
+
+    function resize() {
+      dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const margin = player.radius + 22;
+      player.y = playerHomeY();
+      player.x = Math.min(Math.max(player.x || width / 2, margin), width - margin);
+      stars = Array.from({ length: Math.floor(width * height / 9000) }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        s: Math.random() * 1.8 + 0.4,
+        a: Math.random() * 0.7 + 0.2,
+      }));
+    }
+
+    function resetGame(skipIntro = false) {
+      phase = 1;
+      lives = 3;
+      recovering = false;
+      player.x = width / 2;
+      player.y = playerHomeY();
+      player.life = 100;
+      player.invulnerable = 0;
+      introTime = skipIntro ? 0 : introDuration;
+      antibodies = [];
+      enemies = [];
+      enemyShots = [];
+      macrophages = [];
+      particles = [];
+      fireworks = [];
+      boss = null;
+      specialCharge = 0;
+      healCharge = 0;
+      shieldTime = 0;
+      shieldCooldown = 0;
+      bossSpecialCooldown = 3.5;
+      bossBeam = 0;
+      bossInflameCooldown = 8;
+      bossInflameWarning = 0;
+      bossInflameBlast = 0;
+      tCellCharge = 0;
+      tCellTime = 0;
+      tCellKills = 0;
+      tCellKillTimer = 0;
+      tCell = null;
+      adccTime = 0;
+      combatTime = 0;
+      reinforceTime = 0;
+      scanTime = 0;
+      immuneAllies = [];
+      cytokineBurst = 0;
+      waitingMissionStart = false;
+      running = true;
+      startOverlay.classList.add("hidden");
+      winOverlay.classList.add("hidden");
+      loseOverlay.classList.add("hidden");
+      infoOverlay.classList.add("hidden");
+      pausedByInfo = false;
+      if (skipIntro) spawnPhase(1);
+      updateHud();
+    }
+
+    function showMissionStartPrompt() {
+      waitingMissionStart = true;
+      running = false;
+      introTime = 0;
+      startTitle.textContent = "Missão iniciada";
+      startText.innerHTML = "<strong>Célula Natural Killer vs Tumor</strong><br><br>Objetivo: eliminar as células tumorais antes que elas realizem metástase e dominem o organismo.<br><br>Clique em START para iniciar a missão.";
+      skipStoryButton.classList.add("hidden");
+      startOverlay.classList.remove("hidden");
+      updateHud();
+    }
+
+    function beginMission() {
+      waitingMissionStart = false;
+      running = true;
+      startTitle.textContent = "Natural Killer vs Tumor";
+      startText.textContent = "A missão do sistema imunológico começa dentro de um paciente: o tumor deixa pistas, a dendrítica investiga e a célula NK entra na batalha.";
+      skipStoryButton.classList.remove("hidden");
+      startOverlay.classList.add("hidden");
+      player.x = width / 2;
+      player.y = playerHomeY();
+      spawnPhase(1);
+      updateHud();
+    }
+
+    function restartCurrentPhase() {
+      recovering = false;
+      player.x = width / 2;
+      player.y = playerHomeY();
+      player.life = 100;
+      player.invulnerable = 1.1;
+      shieldTime = 0;
+      shieldCooldown = 0;
+      tCellTime = 0;
+      tCell = null;
+      loseOverlay.classList.add("hidden");
+      spawnPhase(phase >= 6 ? 6 : Math.max(1, phase));
+      updateHud();
+    }
+
+    function spawnPhase(nextPhase) {
+      phase = nextPhase;
+      antibodies = [];
+      enemyShots = [];
+      macrophages = [];
+      particles = [];
+      boss = null;
+      cytokineBurst = 0;
+      adccTime = 0;
+      combatTime = 0;
+      reinforceTime = 0;
+      scanTime = 0;
+      immuneAllies = [];
+      bossSpecialCooldown = 3.5;
+      bossBeam = 0;
+      bossInflameCooldown = 8;
+      bossInflameWarning = 0;
+      bossInflameBlast = 0;
+
+      if (phase === 1) {
+        enemies = makeGridEnemies(10, 1, 18, 1);
+      } else if (phase === 2) {
+        enemies = makeGridEnemies(5, 2, 19, 1);
+        enemies.push({
+          type: "large",
+          x: width / 2,
+          y: Math.max(120, height * 0.24),
+          r: 38,
+          hp: 8,
+          maxHp: 8,
+          vx: 80,
+          phase: Math.random() * 10,
+        });
+      } else if (phase === 3) {
+        enemies = makeGridEnemies(16, 2, 12, 1, "subcell");
+      } else if (phase === 4) {
+        enemies = makeGridEnemies(8, 2, 17, 2);
+        enemies.push(...makeGridEnemies(8, 2, 11, 1, "subcell", 74));
+      } else if (phase === 5) {
+        enemies = makeGridEnemies(6, 2, 20, 3);
+        enemies.push(...makeGridEnemies(10, 2, 11, 1, "subcell", 92));
+        enemies.push({
+          type: "large",
+          x: width / 2,
+          y: Math.max(128, height * 0.20),
+          r: 42,
+          hp: 12,
+          maxHp: 12,
+          vx: 86,
+          phase: Math.random() * 10,
+        });
+      } else if (phase === 6) {
+        enemies = [];
+        boss = {
+          x: width / 2,
+          y: Math.max(150, height * 0.26),
+          r: Math.min(72, width * 0.13),
+          hp: 76,
+          maxHp: 76,
+          stage: 1,
+          recruitTimer: 2.5,
+          vx: 70,
+          tentacleSpin: 0,
+        };
+      }
+      updateHud();
+    }
+
+    function makeGridEnemies(count, rows, radius, hp, type = "cell", yOffset = 0) {
+      const list = [];
+      const cols = Math.ceil(count / rows);
+      const spacingX = Math.min(82, width / (cols + 1));
+      const startY = Math.max(105, height * 0.17) + yOffset;
+      for (let i = 0; i < count; i++) {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        list.push({
+          type,
+          x: spacingX * (col + 1),
+          y: startY + row * 62,
+          r: radius,
+          hp,
+          maxHp: hp,
+          vx: 44 + Math.random() * 28,
+          phase: Math.random() * 10,
+          hidden: type === "subcell" && phase >= 3 && i % 4 === 0,
+          camouflaged: type !== "subcell" && phase >= 4 && i % 5 === 0,
+        });
+      }
+      return list;
+    }
+
+    function updateHud() {
+      phaseEl.textContent = introTime > 0 ? "Intro" : phase;
+      const hideControls = introTime > 0 || pausedByInfo || !running;
+      actionButtons.classList.toggle("hidden", hideControls);
+      touchHint.classList.toggle("hidden", hideControls);
+      const remaining = enemies.filter((enemy) => !enemy.cured).length + (boss && boss.hp > 0 ? 1 : 0);
+      targetsEl.textContent = remaining;
+      const lifePct = Math.max(0, Math.round(player.life));
+      lifeEl.textContent = `${"♥ ".repeat(Math.max(0, lives)).trim()}${lives < 3 ? " " + "♡ ".repeat(3 - lives).trim() : ""} · ${lifePct}%`;
+      lifeBarEl.style.width = `${lifePct}%`;
+      const bossPct = boss ? Math.max(0, Math.ceil((boss.hp / boss.maxHp) * 100)) : 0;
+      bossLifeEl.textContent = boss ? `${bossPct}%` : "-";
+      bossBarEl.style.width = `${bossPct}%`;
+      const specialDeg = Math.min(360, (specialCharge / specialCooldown) * 360);
+      const healDeg = Math.min(360, (healCharge / healCooldown) * 360);
+      const tDeg = Math.min(360, (tCellCharge / tCellCooldown) * 360);
+      const shieldDeg = combatTime > 0 ? 360 : shieldCooldown <= 0 ? 360 : Math.max(0, 360 - (shieldCooldown / 12) * 360);
+      specialButton.style.setProperty("--charge", `${specialDeg}deg`);
+      healButton.style.setProperty("--charge", `${healDeg}deg`);
+      tCellButton.style.setProperty("--charge", `${tDeg}deg`);
+      shieldButton.style.setProperty("--charge", `${shieldDeg}deg`);
+      specialButton.classList.toggle("ready", specialCharge >= specialCooldown);
+      healButton.classList.toggle("ready", healCharge >= healCooldown);
+      tCellButton.classList.toggle("ready", tCellCharge >= tCellCooldown && adccTime <= 0);
+      shieldButton.classList.toggle("ready", shieldCooldown <= 0 && combatTime <= 0);
+      shieldButton.classList.toggle("defending", combatTime > 0);
+    }
+
+    function fireAntibody() {
+      if (shootCooldown > 0 || !running) return;
+      shootCooldown = combatTime > 0 ? 0.085 : 0.13;
+      antibodies.push({
+        x: player.x,
+        y: player.y - player.radius,
+        vy: combatTime > 0 ? -820 : -620,
+        size: combatTime > 0 ? 15 : 11,
+        damage: 1.4,
+        nkToxin: true,
+        cytokine: true,
+      });
+      makeParticles(player.x, player.y - player.radius, "#a87cff", 5, 1.1);
+    }
+
+    function callReinforcements() {
+      if (!running || introTime > 0 || specialCharge < specialCooldown) return;
+      specialCharge = 0;
+      reinforceTime = 10;
+      cytokineBurst = 1.2;
+      immuneAllies = Array.from({ length: 4 }, (_, i) => ({
+        x: player.x + Math.cos(i * Math.PI / 2) * 52,
+        y: player.y + Math.sin(i * Math.PI / 2) * 36,
+        phase: i,
+        cooldown: 0.2 + i * 0.18,
+      }));
+      makeParticles(player.x, player.y - 40, "#5cf3ff", 80, 3.2);
+    }
+
+    function activateDetector() {
+      if (!running || introTime > 0 || healCharge < healCooldown) return;
+      healCharge = 0;
+      scanTime = 8;
+      enemies.forEach((enemy) => {
+        if (enemy.hidden || enemy.camouflaged) {
+          enemy.hidden = false;
+          enemy.camouflaged = false;
+          enemy.detected = 8;
+        }
+      });
+      makeParticles(player.x, player.y, "#5cf3ff", 95, 3.6);
+      updateHud();
+    }
+
+    function activateCombatMode() {
+      if (!running || introTime > 0 || shieldCooldown > 0 || shieldTime > 0) return;
+      shieldTime = 8;
+      combatTime = 8;
+      shieldCooldown = 12;
+      makeParticles(player.x, player.y, "#a87cff", 54, 2.8);
+      makeParticles(player.x, player.y, "#5cf3ff", 40, 2.4);
+      updateHud();
+    }
+
+    function markTargetsAdcc() {
+      if (!running || introTime > 0 || tCellCharge < tCellCooldown || tCellTime > 0) return;
+      tCellCharge = 0;
+      tCellTime = 10;
+      adccTime = 10;
+      spawnPlasmocyteAdcc();
+      updateHud();
+    }
+
+    function spawnPlasmocyteAdcc() {
+      tCell = {
+        type: "plasmocyte",
+        x: -70,
+        y: height * 0.34,
+        targetX: width * 0.18,
+        phase: 0,
+      };
+      enemies.forEach((enemy, index) => {
+        if (enemy.dead || enemy.cured || enemy.hidden || enemy.camouflaged) return;
+        enemy.adccMarked = 10;
+        const delay = index * 0.035;
+        antibodies.push({
+          x: width * 0.12,
+          y: height * 0.34,
+          vx: (enemy.x - width * 0.12) * 1.7,
+          vy: (enemy.y - height * 0.34) * 1.7,
+          size: 12,
+          damage: 0,
+          marker: true,
+          delay,
+        });
+      });
+      if (boss) {
+        boss.adccMarked = 10;
+        antibodies.push({
+          x: width * 0.12,
+          y: height * 0.34,
+          vx: (boss.x - width * 0.12) * 1.7,
+          vy: (boss.y - height * 0.34) * 1.7,
+          size: 14,
+          damage: 0,
+          marker: true,
+          bossMarker: true,
+        });
+      }
+      makeParticles(width * 0.12, height * 0.34, "#ffd84f", 38, 2.1);
+    }
+
+    function explodeBoss() {
+      if (!boss) return;
+      makeParticles(boss.x, boss.y, "#ff4f9a", 160, 5.5);
+      makeParticles(boss.x, boss.y, "#46f5a8", 100, 4.5);
+      boss.hp = 0;
+      boss = null;
+      setTimeout(winGame, 620);
+    }
+
+    function winGame() {
+      running = false;
+      fireworks = Array.from({ length: 18 }, () => makeFirework());
+      winOverlay.classList.remove("hidden");
+    }
+
+    function loseAttempt(message = "Você foi atingido.") {
+      if (recovering) return;
+      recovering = true;
+      lives = Math.max(0, lives - 1);
+      running = false;
+      player.life = 100;
+      loseOverlay.querySelector("p").innerHTML = `<strong>${message}</strong><br>${lives > 0 ? "Reiniciando a fase do chefe..." : "Suas tentativas acabaram."}`;
+      loseOverlay.classList.remove("hidden");
+      updateHud();
+      if (lives > 0) {
+        setTimeout(() => {
+          running = true;
+          restartCurrentPhase();
+        }, 1400);
+      }
+    }
+
+    function makeFirework() {
+      return {
+        x: 60 + Math.random() * (width - 120),
+        y: 70 + Math.random() * (height * 0.5),
+        t: 0,
+        color: ["#46f5a8", "#5cf3ff", "#ff4f9a", "#ffd84f"][Math.floor(Math.random() * 4)],
+        sparks: Array.from({ length: 28 }, (_, i) => {
+          const a = (i / 28) * Math.PI * 2;
+          const s = 50 + Math.random() * 110;
+          return { a, s };
+        }),
+      };
+    }
+
+    function makeParticles(x, y, color, count, power) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = (40 + Math.random() * 90) * power;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s,
+          life: 0.38 + Math.random() * 0.5,
+          maxLife: 0.9,
+          color,
+          size: 1.5 + Math.random() * 3,
+        });
+      }
+    }
+
+    function pointerAction(clientX) {
+      if (waitingMissionStart) return;
+      if (!running) {
+        resetGame();
+        return;
+      }
+      if (introTime > 0) return;
+      const direction = clientX < width / 2 ? -1 : 1;
+      player.x += direction * Math.min(80, width * 0.12);
+      const margin = player.radius + 22;
+      player.x = Math.max(margin, Math.min(width - margin, player.x));
+      fireAntibody();
+    }
+
+    function update(dt) {
+      if (!running) return;
+      if (introTime > 0) {
+        introTime = Math.max(0, introTime - dt);
+        const progress = 1 - introTime / introDuration;
+        player.x = width * (0.5 + Math.sin(progress * Math.PI * 2) * 0.02);
+        player.y = height * 0.62;
+        if (introTime <= 0) {
+          player.x = width / 2;
+          player.y = playerHomeY();
+          showMissionStartPrompt();
+        }
+        updateParticles(dt);
+        updateHud();
+        return;
+      }
+      shootCooldown = Math.max(0, shootCooldown - dt);
+      specialCharge = Math.min(specialCooldown, specialCharge + dt);
+      healCharge = Math.min(healCooldown, healCharge + dt);
+      tCellCharge = Math.min(tCellCooldown, tCellCharge + dt);
+      tCellTime = Math.max(0, tCellTime - dt);
+      shieldTime = Math.max(0, shieldTime - dt);
+      adccTime = Math.max(0, adccTime - dt);
+      combatTime = Math.max(0, combatTime - dt);
+      reinforceTime = Math.max(0, reinforceTime - dt);
+      scanTime = Math.max(0, scanTime - dt);
+      shieldCooldown = Math.max(0, shieldCooldown - dt);
+      player.invulnerable = Math.max(0, player.invulnerable - dt);
+      if (cytokineBurst > 0) cytokineBurst = Math.max(0, cytokineBurst - dt);
+      enemies.forEach((enemy) => {
+        enemy.adccMarked = Math.max(0, (enemy.adccMarked || 0) - dt);
+        enemy.detected = Math.max(0, (enemy.detected || 0) - dt);
+      });
+
+      let axis = 0;
+      if (keys.has("ArrowLeft")) axis -= 1;
+      if (keys.has("ArrowRight")) axis += 1;
+      player.x += axis * player.speed * (combatTime > 0 ? 1.5 : 1) * dt;
+      const margin = player.radius + 22;
+      player.x = Math.max(margin, Math.min(width - margin, player.x));
+
+      antibodies.forEach((shot) => {
+        if (shot.delay) {
+          shot.delay -= dt;
+          if (shot.delay > 0) return;
+        }
+        shot.x += (shot.vx || 0) * dt;
+        shot.y += shot.vy * dt;
+      });
+      antibodies = antibodies.filter((shot) => shot.y > -40 && shot.x > -60 && shot.x < width + 60);
+
+      updateTCell(dt);
+      updateImmuneAllies(dt);
+
+      enemies.forEach((enemy) => {
+        if (enemy.dead) {
+          enemy.corpseAge = (enemy.corpseAge || 0) + dt;
+          enemy.phase += dt * 0.4;
+          return;
+        }
+        if (enemy.cured) {
+          enemy.x += enemy.vx * dt;
+          enemy.y += enemy.vy * dt;
+          enemy.phase += dt;
+          return;
+        }
+        enemy.phase += dt;
+        enemy.x += Math.sin(enemy.phase * 1.2) * enemy.vx * dt;
+        enemy.y += Math.sin(enemy.phase * 0.7) * 8 * dt;
+        const fireRate = enemy.type === "large" ? 0.58 : enemy.type === "subcell" ? 0.26 : (phase >= 4 ? 0.38 : 0.22);
+        if (Math.random() < dt * fireRate) {
+          const isLarge = enemy.type === "large";
+          const isSubcell = enemy.type === "subcell";
+          const angle = Math.PI / 2 + (Math.random() - 0.5) * (isLarge ? 0.7 : 0.45);
+          const speed = isLarge ? 185 : isSubcell ? 155 : 170;
+          enemyShots.push({
+            type: isLarge || isSubcell ? "bigCytokine" : "cytokine",
+            x: enemy.x,
+            y: enemy.y + enemy.r,
+            vx: Math.cos(angle) * (isLarge ? 58 : 30),
+            vy: Math.sin(angle) * speed,
+            r: isLarge ? 10 : isSubcell ? 7 : 4,
+            damage: isLarge ? 10 : isSubcell ? 8 : 6,
+          });
+        }
+      });
+
+      if (boss) {
+        boss.adccMarked = Math.max(0, (boss.adccMarked || 0) - dt);
+        boss.tentacleSpin += dt;
+        bossBeam = Math.max(0, bossBeam - dt);
+        bossInflameBlast = Math.max(0, bossInflameBlast - dt);
+        const ratio = boss.hp / boss.maxHp;
+        boss.stage = ratio > 2 / 3 ? 1 : ratio > 1 / 3 ? 2 : 3;
+        boss.x += Math.sin(boss.tentacleSpin * 0.9) * boss.vx * dt;
+        boss.x = Math.max(boss.r + 20, Math.min(width - boss.r - 20, boss.x));
+
+        if (bossInflameWarning > 0) {
+          bossInflameWarning = Math.max(0, bossInflameWarning - dt);
+          boss.x += Math.sin(performance.now() * 0.018) * 34 * dt;
+          if (Math.random() < dt * 18) {
+            makeParticles(
+              boss.x + (Math.random() - 0.5) * boss.r * 1.7,
+              boss.y + (Math.random() - 0.5) * boss.r * 1.1,
+              "#ffd84f",
+              1,
+              1.5
+            );
+          }
+          if (bossInflameWarning <= 0) {
+            bossInflameBlast = 1.15;
+            makeParticles(boss.x, boss.y, "#ffd84f", 140, 4.2);
+            makeParticles(player.x, player.y, "#ff4f9a", 60, 3.0);
+            if (shieldTime <= 0 && player.invulnerable <= 0) {
+              loseAttempt("Você perdeu. O golpe inflamatório do boss foi letal.");
+            } else {
+              player.invulnerable = Math.max(player.invulnerable, 1.2);
+              makeParticles(player.x, player.y, "#5cf3ff", 70, 2.8);
+            }
+            bossInflameCooldown = 16;
+          }
+        } else {
+          bossInflameCooldown -= dt;
+          bossSpecialCooldown -= dt;
+          if (bossInflameCooldown <= 0) {
+            bossInflameWarning = 8;
+            bossInflameCooldown = 999;
+            bossBeam = 0;
+            makeParticles(boss.x, boss.y, "#ffd84f", 62, 2.5);
+          }
+        }
+
+        if (bossInflameWarning <= 0 && Math.random() < dt * (boss.stage === 3 ? 2.1 : 1.4)) {
+          const angle = Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+          enemyShots.push({
+            x: boss.x + (Math.random() - 0.5) * boss.r,
+            y: boss.y + boss.r * 0.7,
+            vx: Math.cos(angle) * 80,
+            vy: Math.sin(angle) * 170,
+            r: 6,
+          });
+        }
+        if (bossInflameWarning <= 0 && boss.stage === 3 && Math.random() < dt * 0.9) {
+          enemyShots.push({
+            type: "vessel",
+            x: boss.x + (Math.random() - 0.5) * boss.r,
+            y: boss.y + boss.r,
+            vx: (Math.random() - 0.5) * 70,
+            vy: 210,
+            r: 8,
+          });
+        }
+        if (bossInflameWarning <= 0 && boss.stage >= 2) {
+          boss.recruitTimer -= dt;
+          if (boss.recruitTimer <= 0) {
+            boss.recruitTimer = boss.stage === 2 ? 3.2 : 2.4;
+            recruitTumorCells(boss.stage === 2 ? 2 : 3);
+          }
+        }
+        if (bossInflameWarning <= 0 && bossSpecialCooldown <= 0) {
+          bossSpecialCooldown = boss.stage === 3 ? 3.7 : 5.2;
+          bossBeam = 1.15;
+          bossBeamX = player.x;
+          makeParticles(boss.x, boss.y + boss.r * 0.7, "#ff4f9a", 42, 2.8);
+        }
+      }
+
+      enemyShots.forEach((shot) => {
+        shot.x += (shot.vx || 0) * dt;
+        shot.y += shot.vy * dt;
+        if (dist(shot.x, shot.y, player.x, player.y) < shot.r + player.radius * 0.72 && player.invulnerable <= 0 && shieldTime <= 0) {
+          player.life -= shot.damage || 8;
+          player.invulnerable = 0.8;
+          makeParticles(player.x, player.y, shot.type === "bigCytokine" ? "#a87cff" : "#ff4f9a", shot.type === "bigCytokine" ? 28 : 18, shot.type === "bigCytokine" ? 2.3 : 1.8);
+        }
+      });
+      enemyShots = enemyShots.filter((shot) => shot.y < height + 30);
+      enemies = enemies.filter((enemy) => !enemy.cured || enemy.y > -70);
+      updateMacrophages(dt);
+
+      if (bossBeam > 0 && bossBeam < 0.72 && boss && shieldTime <= 0 && player.invulnerable <= 0) {
+        const beamStartX = boss.x;
+        const beamStartY = boss.y + boss.r * 0.42;
+        if (distToSegment(player.x, player.y, beamStartX, beamStartY, bossBeamX, height) < 42) {
+          player.life -= 16 * dt;
+        }
+      }
+
+      hitEnemies();
+      updateParticles(dt);
+
+      if (player.life <= 0) {
+        loseAttempt(phase >= 6 ? "Você perdeu para o boss." : "Você perdeu uma tentativa.");
+      }
+
+      if (!boss && enemies.length === 0) {
+        if (phase < 6) spawnPhase(phase + 1);
+      }
+
+      updateHud();
+    }
+
+    function updateTCell(dt) {
+      if (!tCell || tCellTime <= 0) {
+        tCell = null;
+        return;
+      }
+      if (tCell.type === "plasmocyte") {
+        tCell.phase += dt;
+        tCell.x += (tCell.targetX - tCell.x) * Math.min(1, dt * 5);
+        tCell.y += Math.sin(tCell.phase * 6) * 8 * dt;
+        if (tCellTime <= 0.2) tCell = null;
+        return;
+      }
+      tCellKillTimer -= dt;
+      const target = enemies.find((enemy) => !enemy.dead && !enemy.cured) || (boss ? boss : null);
+      if (!target) {
+        tCell.x += (width * 0.5 - tCell.x) * Math.min(1, dt * 3);
+        tCell.y += (height * 0.4 - tCell.y) * Math.min(1, dt * 3);
+        return;
+      }
+
+      const isBoss = target === boss;
+      const orbit = isBoss ? (boss.r + 46) : 0;
+      const targetX = isBoss ? boss.x - orbit : target.x;
+      const targetY = isBoss ? boss.y + Math.sin(performance.now() * 0.01) * 26 : target.y;
+      tCell.x += (targetX - tCell.x) * Math.min(1, dt * 7.5);
+      tCell.y += (targetY - tCell.y) * Math.min(1, dt * 7.5);
+
+      if (!isBoss && tCellKills < 3 && tCellKillTimer <= 0 && dist(tCell.x, tCell.y, target.x, target.y) < target.r + 18) {
+        tCellKillTimer = 0.55;
+        tCellKills += 1;
+        markDeadCell(target);
+        tCell.x = target.x;
+        tCell.y = target.y;
+        makeParticles(target.x, target.y, "#8d6b64", 8, 0.55);
+      }
+
+      if (isBoss && tCellKillTimer <= 0) {
+        tCellKillTimer = 0.38;
+        boss.hp -= 3;
+        makeParticles(boss.x - boss.r * 0.35, boss.y, "#a87cff", 18, 1.6);
+        antibodies.push({
+          x: tCell.x,
+          y: tCell.y,
+          vx: (boss.x - tCell.x) * 1.8,
+          vy: (boss.y - tCell.y) * 1.8,
+          size: 13,
+          damage: 2,
+          cytokine: true,
+          tcell: true,
+        });
+        if (boss.hp <= 0) explodeBoss();
+      }
+    }
+
+    function updateImmuneAllies(dt) {
+      if (reinforceTime <= 0) {
+        immuneAllies = [];
+        return;
+      }
+      immuneAllies.forEach((ally, index) => {
+        ally.phase += dt;
+        const angle = ally.phase + index * Math.PI * 0.5;
+        ally.x += (player.x + Math.cos(angle) * 62 - ally.x) * Math.min(1, dt * 4);
+        ally.y += (player.y + Math.sin(angle) * 42 - ally.y) * Math.min(1, dt * 4);
+        ally.cooldown -= dt;
+        if (ally.cooldown <= 0) {
+          ally.cooldown = 0.55;
+          const target = enemies.find((enemy) => !enemy.dead && !enemy.cured && !enemy.hidden && !enemy.camouflaged);
+          if (target) {
+            antibodies.push({
+              x: ally.x,
+              y: ally.y,
+              vx: (target.x - ally.x) * 2.2,
+              vy: (target.y - ally.y) * 2.2,
+              size: 9,
+              damage: 1.25,
+              nkToxin: true,
+              allyShot: true,
+            });
+          }
+        }
+      });
+    }
+
+    function recruitTumorCells(count) {
+      for (let i = 0; i < count; i++) {
+        enemies.push({
+          type: "subcell",
+          x: Math.max(40, Math.min(width - 40, boss.x + (Math.random() - 0.5) * 150)),
+          y: boss.y + boss.r + 32 + Math.random() * 40,
+          r: 11,
+          hp: 1,
+          maxHp: 1,
+          vx: 55 + Math.random() * 35,
+          phase: Math.random() * 10,
+        });
+      }
+    }
+
+    function markDeadCell(enemy) {
+      if (!enemy || enemy.dead || enemy.cured) return;
+      enemy.dead = true;
+      enemy.corpseAge = 0;
+      enemy.r0 = enemy.r;
+      enemy.vx = 0;
+      enemy.vy = 0;
+      enemyShots = enemyShots.filter((shot) => dist(shot.x, shot.y, enemy.x, enemy.y) > enemy.r * 1.6);
+    }
+
+    function updateMacrophages(dt) {
+      if (macrophages.length === 0) {
+        const waitingCorpse = enemies.find((enemy) => enemy.dead && !enemy.cleaned && (enemy.corpseAge || 0) >= 1);
+        if (waitingCorpse) {
+          macrophages.push({
+            x: waitingCorpse.x < width * 0.5 ? -46 : width + 46,
+            y: Math.max(110, Math.min(height - 150, waitingCorpse.y + (Math.random() - 0.5) * 90)),
+            target: waitingCorpse,
+            phase: Math.random() * Math.PI * 2,
+            eating: 0,
+            r: waitingCorpse.type === "large" ? 28 : 22,
+            exiting: false,
+          });
+        }
+      }
+
+      macrophages.forEach((mac) => {
+        mac.phase += dt * 6;
+        let target = mac.target;
+        if (!target || target.cleaned) {
+          target = enemies.find((enemy) => enemy.dead && !enemy.cleaned && (enemy.corpseAge || 0) >= 1);
+          mac.target = target || null;
+          mac.eating = 0;
+          if (!target) mac.exiting = true;
+        }
+        if (mac.exiting) {
+          const exitX = mac.x < width * 0.5 ? -70 : width + 70;
+          const dx = exitX - mac.x;
+          mac.x += Math.sign(dx || 1) * 160 * dt;
+          mac.y += Math.sin(mac.phase) * 18 * dt;
+          if (Math.abs(dx) < 8 || mac.x < -90 || mac.x > width + 90) mac.done = true;
+          return;
+        }
+        const dx = target.x - mac.x;
+        const dy = target.y - mac.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const speed = mac.eating > 0 ? 90 : 280;
+        mac.x += (dx / d) * speed * dt + Math.sin(mac.phase * 1.7) * 18 * dt;
+        mac.y += (dy / d) * speed * dt + Math.cos(mac.phase * 1.3) * 13 * dt;
+        if (d < mac.r + target.r * 0.65) {
+          mac.eating += dt;
+          target.r = Math.max(3, target.r * (1 - dt * 3.6));
+          target.x += (mac.x - target.x) * dt * 4.1;
+          target.y += (mac.y - target.y) * dt * 4.1;
+          if (Math.random() < dt * 12) makeParticles(target.x, target.y, "#b47a5f", 2, 0.45);
+          if (mac.eating > 0.46 || target.r <= 4) {
+            target.cleaned = true;
+            mac.target = null;
+            mac.eating = 0;
+            makeParticles(mac.x, mac.y, "#d8f9ff", 22, 1.3);
+          }
+        }
+      });
+      macrophages = macrophages.filter((mac) => !mac.done);
+      enemies = enemies.filter((enemy) => !enemy.cleaned);
+    }
+
+    function hitEnemies() {
+      for (const shot of antibodies) {
+        for (const enemy of enemies) {
+          if (enemy.dead || enemy.cured) continue;
+          if (dist(shot.x, shot.y, enemy.x, enemy.y) < enemy.r + shot.size * 0.45) {
+            if (shot.marker) {
+              enemy.adccMarked = 10;
+              shot.dead = true;
+              makeParticles(enemy.x, enemy.y, "#ffd84f", 12, 0.9);
+              continue;
+            }
+            if (enemy.hidden || enemy.camouflaged) {
+              shot.dead = true;
+              makeParticles(shot.x, shot.y, "#303040", 6, 0.5);
+              continue;
+            }
+            if (shot.heal) {
+              enemy.cured = true;
+              enemy.type = "healthy";
+              enemy.hp = 1;
+              enemy.maxHp = 1;
+              enemy.vx = (enemy.x < width * 0.5 ? -1 : 1) * (70 + Math.random() * 55);
+              enemy.vy = -120 - Math.random() * 90;
+              shot.dead = true;
+              makeParticles(enemy.x, enemy.y, "#46f5a8", 52, 3.1);
+              makeParticles(enemy.x, enemy.y, "#d8f9ff", 24, 2.0);
+              break;
+            }
+            let damage = shot.damage;
+            if (enemy.adccMarked > 0) damage *= 2;
+            if (enemy.detected > 0) damage *= 1.5;
+            enemy.hp -= damage;
+            shot.dead = true;
+            if (enemy.hp <= 0) {
+              markDeadCell(enemy);
+              makeParticles(enemy.x, enemy.y, "#8d6b64", 7, 0.55);
+            } else {
+              makeParticles(enemy.x, enemy.y, enemy.type === "large" ? "#a87cff" : "#ff4f9a", 8, 0.8);
+            }
+          }
+        }
+        if (boss && dist(shot.x, shot.y, boss.x, boss.y) < boss.r + shot.size * 0.45) {
+          if (shot.marker) {
+            boss.adccMarked = 10;
+            shot.dead = true;
+            makeParticles(shot.x, shot.y, "#ffd84f", 24, 1.4);
+            continue;
+          }
+          if (shot.heal) {
+            shot.dead = true;
+            makeParticles(shot.x, shot.y, "#46f5a8", 22, 1.8);
+            continue;
+          }
+          let bossDamage = shot.damage;
+          if (boss.adccMarked > 0) bossDamage *= 2;
+          boss.hp -= bossDamage;
+          shot.dead = true;
+          makeParticles(shot.x, shot.y, shot.cytokine ? "#5cf3ff" : "#46f5a8", shot.cytokine ? 16 : 8, 1.4);
+          if (boss.hp <= 0) {
+            explodeBoss();
+            break;
+          }
+        }
+      }
+      antibodies = antibodies.filter((shot) => !shot.dead);
+    }
+
+    function updateParticles(dt) {
+      particles.forEach((p) => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+        p.life -= dt;
+      });
+      particles = particles.filter((p) => p.life > 0);
+
+      fireworks.forEach((fw) => {
+        fw.t += dt;
+        if (fw.t > 1.2) Object.assign(fw, makeFirework());
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+      if (introTime > 0) {
+        drawVesselIntro();
+      } else {
+      drawBackground();
+      }
+      enemies.forEach(drawCancerCell);
+      macrophages.forEach(drawMacrophage);
+      if (boss) drawBoss();
+      if (bossBeam > 0) drawBossBeam();
+      if (tCell) drawTCell();
+      immuneAllies.forEach(drawImmuneAlly);
+      enemyShots.forEach(drawEnemyShot);
+      antibodies.forEach(drawAntibody);
+      if (introTime <= 0) drawPlayer();
+      if (scanTime > 0) drawScanPulse();
+      particles.forEach(drawParticle);
+      fireworks.forEach(drawFirework);
+      if (cytokineBurst > 0) drawSpecialWave();
+      if (bossInflameBlast > 0) drawInflammationBlast();
+      if (bossInflameWarning > 0) drawInflammationAlert();
+    }
+
+    function drawVesselIntro() {
+      const progress = 1 - introTime / introDuration;
+      drawIntroBackdrop(progress);
+      if (progress < 0.14) drawNkPatientScene(progress / 0.14);
+      else if (progress < 0.28) drawNkTumorScene((progress - 0.14) / 0.14);
+      else if (progress < 0.42) drawNkDendriticScene((progress - 0.28) / 0.14);
+      else if (progress < 0.58) drawNkLymphNodeScene((progress - 0.42) / 0.16);
+      else if (progress < 0.70) drawNkChemokineScene((progress - 0.58) / 0.12);
+      else if (progress < 0.84) drawNkMhcEscapeScene((progress - 0.70) / 0.14);
+      else drawNkHeroScene((progress - 0.84) / 0.16);
+
+      drawIntroCaption(progress);
+    }
+
+    function drawIntroBackdrop(progress) {
+      const g = ctx.createRadialGradient(width * 0.5, height * 0.52, 0, width * 0.5, height * 0.52, Math.max(width, height) * 0.75);
+      g.addColorStop(0, "#26102b");
+      g.addColorStop(0.5, "#12091f");
+      g.addColorStop(1, "#030814");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalAlpha = 0.28;
+      ctx.strokeStyle = "#5cf3ff";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 14; i++) {
+        const y = ((i / 14) * height + progress * height * 0.2) % height;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(width * 0.24, y - 30, width * 0.54, y + 42, width, y - 10);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawNkPatientScene(t) {
+      ctx.fillStyle = "#020713";
+      ctx.fillRect(0, 0, width, height);
+      ctx.save();
+      ctx.translate(width * 0.5, height * 0.58);
+      const zoom = 1;
+      ctx.scale(zoom, zoom);
+
+      ctx.fillStyle = "rgba(6, 18, 32, 0.96)";
+      ctx.strokeStyle = "rgba(92, 243, 255, 0.20)";
+      ctx.lineWidth = 2 / zoom;
+      roundRect(ctx, -width * 0.38, -height * 0.24, width * 0.76, height * 0.44, 22 / zoom);
+      ctx.fill();
+      ctx.stroke();
+
+      const bedY = height * 0.070;
+      const bedX = -width * 0.34;
+      const bedW = width * 0.68;
+      const skin = "#f2c8b7";
+      const sheet = "#d8f9ff";
+      const blanket = "rgba(65, 190, 255, 0.44)";
+
+      ctx.strokeStyle = "rgba(92, 243, 255, 0.22)";
+      ctx.lineWidth = 4 / zoom;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.28, bedY + height * 0.030);
+      ctx.lineTo(-width * 0.28, height * 0.185);
+      ctx.moveTo(width * 0.28, bedY + height * 0.030);
+      ctx.lineTo(width * 0.28, height * 0.185);
+      ctx.moveTo(-width * 0.28, height * 0.150);
+      ctx.lineTo(width * 0.28, height * 0.150);
+      ctx.stroke();
+      ctx.lineWidth = 5 / zoom;
+      ctx.beginPath();
+      ctx.arc(-width * 0.28, height * 0.197, 9 / zoom, 0, Math.PI * 2);
+      ctx.arc(width * 0.28, height * 0.197, 9 / zoom, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(92, 243, 255, 0.18)";
+      roundRect(ctx, bedX, bedY, bedW, height * 0.038, 14 / zoom);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(216,249,255,0.34)";
+      ctx.lineWidth = 2 / zoom;
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(-width * 0.265, bedY - height * 0.032);
+      ctx.rotate(-0.34);
+      ctx.fillStyle = "rgba(244,248,255,0.96)";
+      roundRect(ctx, -width * 0.065, -height * 0.018, width * 0.145, height * 0.050, 12 / zoom);
+      ctx.fill();
+      ctx.fillStyle = "rgba(216,249,255,0.96)";
+      roundRect(ctx, -width * 0.052, -height * 0.007, width * 0.118, height * 0.030, 10 / zoom);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(-width * 0.245, bedY - height * 0.067, 27 / zoom, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = skin;
+      roundRect(ctx, -width * 0.205, bedY - height * 0.043, width * 0.105, height * 0.046, 18 / zoom);
+      ctx.fill();
+
+      ctx.fillStyle = sheet;
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.160, bedY - height * 0.040);
+      ctx.bezierCurveTo(-width * 0.105, bedY - height * 0.075, width * 0.030, bedY - height * 0.050, width * 0.150, bedY - height * 0.030);
+      ctx.bezierCurveTo(width * 0.230, bedY - height * 0.015, width * 0.275, bedY + height * 0.010, width * 0.285, bedY + height * 0.042);
+      ctx.lineTo(-width * 0.160, bedY + height * 0.042);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = blanket;
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.105, bedY - height * 0.020);
+      ctx.bezierCurveTo(-width * 0.020, bedY - height * 0.045, width * 0.160, bedY - height * 0.030, width * 0.255, bedY + height * 0.012);
+      ctx.lineTo(width * 0.278, bedY + height * 0.042);
+      ctx.lineTo(-width * 0.105, bedY + height * 0.042);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = skin;
+      ctx.lineWidth = 8 / zoom;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.150, bedY - height * 0.010);
+      ctx.quadraticCurveTo(-width * 0.085, bedY + height * 0.020, -width * 0.015, bedY + height * 0.026);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(92, 243, 255, 0.30)";
+      ctx.lineWidth = 3 / zoom;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.345, -height * 0.140);
+      ctx.lineTo(width * 0.345, height * 0.185);
+      ctx.moveTo(width * 0.305, height * 0.185);
+      ctx.lineTo(width * 0.385, height * 0.185);
+      ctx.moveTo(width * 0.345, -height * 0.125);
+      ctx.lineTo(width * 0.405, -height * 0.125);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(216,249,255,0.80)";
+      roundRect(ctx, width * 0.315, -height * 0.118, width * 0.030, height * 0.056, 6 / zoom);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(216,249,255,0.55)";
+      ctx.lineWidth = 2 / zoom;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.330, -height * 0.062);
+      ctx.bezierCurveTo(width * 0.312, -height * 0.015, width * 0.245, -height * 0.014, width * 0.210, bedY - height * 0.012);
+      ctx.stroke();
+
+      if (t > 0.45) {
+        const z = smoothstep((t - 0.45) / 0.55);
+        ctx.globalAlpha = z;
+        ctx.strokeStyle = "rgba(92,243,255,0.78)";
+        ctx.lineWidth = 4 / zoom;
+        ctx.beginPath();
+        const tumorX = -width * 0.030;
+        const tumorY = bedY - height * 0.018;
+        ctx.arc(tumorX, tumorY, (26 + z * 58) / zoom, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,79,154,0.52)";
+        ctx.beginPath();
+        ctx.arc(tumorX, tumorY, (12 + z * 18) / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function drawNkTumorScene(t) {
+      drawLungTissue(t);
+      const growth = 0.7 + t * 0.65;
+      for (let i = 0; i < 14 + Math.floor(t * 18); i++) {
+        const a = i * 2.39;
+        const r = (18 + i * 3.2) * growth;
+        const x = width * 0.52 + Math.cos(a) * r * 0.72;
+        const y = height * 0.52 + Math.sin(a) * r * 0.46;
+        drawTumorCellIcon(x, y, 12 + (i % 4), i * 0.4 + t * 4, i % 5 === 0 && t > 0.62);
+      }
+      if (t > 0.62) {
+        for (let i = 0; i < 10; i++) {
+          const x = width * 0.45 + Math.cos(i) * 66 + Math.sin(t * 8 + i) * 12;
+          const y = height * 0.50 + Math.sin(i * 1.7) * 42;
+          drawProteinFragment(x, y, t + i);
+        }
+      }
+    }
+
+    function drawNkDendriticScene(t) {
+      drawLungTissue(1);
+      const dx = width * (0.20 + t * 0.48);
+      const dy = height * (0.62 - Math.sin(t * Math.PI) * 0.18);
+      for (let i = 0; i < 10; i++) {
+        const collect = Math.min(1, Math.max(0, (t - i * 0.055) / 0.45));
+        ctx.save();
+        ctx.globalAlpha = 1 - smoothstep(collect);
+        drawProteinFragment(width * (0.25 + i * 0.055), height * (0.45 + Math.sin(i) * 0.08), t + i);
+        ctx.restore();
+      }
+      drawDendriticCell(dx, dy, t, smoothstep(t));
+      ctx.strokeStyle = "rgba(92,243,255,0.48)";
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(width * 0.14, height * 0.70);
+      ctx.bezierCurveTo(width * 0.34, height * 0.52, width * 0.54, height * 0.76, width * 0.86, height * 0.44);
+      ctx.stroke();
+    }
+
+    function drawNkLymphNodeScene(t) {
+      ctx.fillStyle = "#071221";
+      ctx.fillRect(0, 0, width, height);
+      const lx = width * 0.52;
+      const ly = height * 0.52;
+      const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, Math.min(width, height) * 0.34);
+      lg.addColorStop(0, "rgba(92,243,255,0.30)");
+      lg.addColorStop(0.65, "rgba(40,169,255,0.16)");
+      lg.addColorStop(1, "rgba(92,243,255,0.02)");
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, width * 0.30, height * 0.21, 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(92,243,255,0.48)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      const targets = Array.from({ length: 5 }, (_, i) => {
+        const angle = -0.92 + i * 0.46;
+        return {
+          x: lx + Math.cos(angle) * Math.min(width, height) * 0.20,
+          y: ly + Math.sin(angle) * Math.min(width, height) * 0.15,
+          color: i % 2 === 0 ? "#5cf3ff" : "#ff8fb9",
+        };
+      });
+      const route = [{ x: width * 0.20, y: height * 0.52 }, ...targets.map((target) => ({ x: target.x - 58, y: target.y }))];
+      const step = Math.min(4, Math.floor(t * 5));
+      const local = Math.min(1, Math.max(0, t * 5 - step));
+      const deliveredCount = Math.min(5, step + (local > 0.72 ? 1 : 0));
+      for (let i = 0; i < targets.length; i++) {
+        drawPresentationLymphocyte(targets[i].x, targets[i].y, i, i < deliveredCount, targets[i].color);
+      }
+      const from = route[step] || route[route.length - 1];
+      const to = route[Math.min(step + 1, route.length - 1)];
+      const move = smoothstep(local);
+      const dcX = from.x + (to.x - from.x) * move;
+      const dcY = from.y + (to.y - from.y) * move;
+      const remainingAntigens = Math.max(0, 5 - deliveredCount);
+      drawDendriticCell(dcX, dcY, t, 1, remainingAntigens);
+      if (step < targets.length && local > 0.52 && local < 0.88) {
+        const target = targets[step];
+        const press = smoothstep((local - 0.52) / 0.36);
+        const x = dcX + (target.x - dcX) * (0.62 + press * 0.28);
+        const y = dcY + (target.y - dcY) * (0.62 + press * 0.28);
+        drawProteinFragment(x, y, t + step);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,216,79,0.65)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, 34 + Math.sin(t * 18) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (t > 0.52) {
+        const signalProgress = smoothstep((t - 0.52) / 0.48);
+        for (let i = 0; i < 22; i++) {
+          const lane = i % targets.length;
+          const target = targets[lane];
+          const travel = Math.max(0, Math.min(1, signalProgress * 1.35 - i * 0.045));
+          const wave = Math.sin(travel * Math.PI * 2 + i * 0.8);
+          const startX = width + 24 + (i % 4) * 18;
+          const startY = target.y + (i % 3 - 1) * 26;
+          const endX = target.x - 24 + wave * 8;
+          const endY = target.y + wave * 10;
+          const x = startX + (endX - startX) * travel;
+          const y = startY + (endY - startY) * travel;
+          if (travel > 0 && travel < 1) {
+            drawChemokineTrailArrow(x + 26, y, x - 14, y + wave * 2);
+            drawSignalSpark(x, y, i);
+          }
+        }
+      }
+    }
+
+    function drawNkChemokineScene(t) {
+      ctx.fillStyle = "#06101c";
+      ctx.fillRect(0, 0, width, height);
+      for (let i = 0; i < 6; i++) {
+        const y = height * (0.24 + i * 0.095);
+        ctx.strokeStyle = i % 2 ? "rgba(92,243,255,0.48)" : "rgba(70,245,168,0.55)";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([10, 14]);
+        ctx.beginPath();
+        ctx.moveTo(width * 0.12, y);
+        ctx.bezierCurveTo(width * 0.32, y + 70, width * 0.58, y - 54, width * 0.88, y + 20);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      for (let i = 0; i < 10; i++) {
+        const lane = i % 5;
+        const baseY = height * (0.24 + lane * 0.095);
+        const u = (t * 0.95 + i * 0.115) % 1;
+        const p = chemokinePathPoint(u, baseY);
+        drawChemokineTrailArrow(p.x - 38, p.y, p.x + 10, p.y + Math.sin(u * Math.PI * 2) * 8);
+        drawSmallLymphocyte(p.x, p.y + Math.sin(t * 10 + i) * 7, i, 18 + (i % 3) * 3);
+      }
+      ctx.fillStyle = "rgba(4,10,24,0.62)";
+      roundRect(ctx, width * 0.08, height * 0.14, Math.min(360, width * 0.52), 42, 16);
+      ctx.fill();
+      ctx.fillStyle = "#5cf3ff";
+      ctx.font = `900 ${Math.min(15, Math.max(11, width * 0.026))}px Inter, Segoe UI, Arial`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Células imunes seguindo o gradiente de quimiocinas", width * 0.10, height * 0.14 + 21);
+    }
+
+    function drawNkMhcEscapeScene(t) {
+      drawLungTissue(1);
+      for (let i = 0; i < 16; i++) {
+        const a = i * 2.35;
+        const r = 42 + (i % 5) * 17;
+        const hidden = i % 3 === 0 || t > 0.55;
+        const x = width * 0.52 + Math.cos(a) * r;
+        const y = height * 0.52 + Math.sin(a) * r * 0.58;
+        drawTumorCellIcon(x, y, 15, i + t * 4, hidden);
+        if (!hidden) drawMhcMarker(x, y - 22);
+      }
+    }
+
+    function drawNkHeroScene(t) {
+      drawLungTissue(1);
+      for (let i = 0; i < 18; i++) {
+        const a = i * 2.2;
+        drawTumorCellIcon(width * 0.54 + Math.cos(a) * (52 + i * 2), height * 0.48 + Math.sin(a) * 46, 14, i, i % 2 === 0);
+      }
+      const glow = smoothstep(t);
+      const nkX = width * (0.16 + glow * 0.34);
+      const nkY = height * (0.68 - glow * 0.18);
+      ctx.fillStyle = `rgba(92,243,255,${0.12 + glow * 0.22})`;
+      ctx.beginPath();
+      ctx.arc(nkX, nkY, 80 + glow * 60, 0, Math.PI * 2);
+      ctx.fill();
+      drawNkCell(nkX, nkY, 32 + glow * 8, t);
+      if (t > 0.58) drawMissionTitle(t);
+    }
+
+    function drawLungTissue(t) {
+      const g = ctx.createRadialGradient(width * 0.52, height * 0.50, 0, width * 0.52, height * 0.50, Math.max(width, height) * 0.68);
+      g.addColorStop(0, "#4a1838");
+      g.addColorStop(0.48, "#26112d");
+      g.addColorStop(1, "#071020");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(255, 143, 180, 0.22)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 14; i++) {
+        const y = height * (0.16 + i * 0.055);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(width * 0.24, y - 30, width * 0.45, y + 34, width * 0.68, y + 5);
+        ctx.bezierCurveTo(width * 0.82, y - 20, width * 0.92, y + 24, width, y - 8);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(255, 49, 95, 0.24)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.04, height * 0.72);
+      ctx.bezierCurveTo(width * 0.30, height * 0.60, width * 0.52, height * 0.82, width * 0.94, height * 0.62);
+      ctx.stroke();
+    }
+
+    function drawTumorCellIcon(x, y, r, phaseValue, hidden = false) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.globalAlpha = hidden ? 0.58 : 1;
+      const spikes = 10;
+      ctx.strokeStyle = hidden ? "rgba(48, 38, 64, 0.9)" : "#ffd84f";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < spikes; i++) {
+        const a = (i / spikes) * Math.PI * 2 + phaseValue * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.75);
+        ctx.lineTo(Math.cos(a) * r * 1.25, Math.sin(a) * r * 1.25);
+        ctx.stroke();
+      }
+      ctx.fillStyle = hidden ? "#242234" : "#ff4f9a";
+      ctx.strokeStyle = hidden ? "#5d557c" : "#ffd84f";
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = hidden ? "rgba(0,0,0,0.35)" : "rgba(2,7,22,0.34)";
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.cos(i * 1.7 + phaseValue) * r * 0.34, Math.sin(i * 1.4) * r * 0.28, r * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawProteinFragment(x, y, seed) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(seed);
+      ctx.fillStyle = "#ffd84f";
+      ctx.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(8, 0);
+      ctx.lineTo(0, 8);
+      ctx.lineTo(-8, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawAntigenPresentation(fromX, fromY, toX, toY, progress, seed) {
+      const p = Math.min(1, Math.max(0, progress - seed * 0.06));
+      const sx = fromX + (toX - fromX) * 0.28;
+      const sy = fromY + (toY - fromY) * 0.22;
+      const ex = fromX + (toX - fromX) * 0.84;
+      const ey = fromY + (toY - fromY) * 0.84;
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,216,79,0.52)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 8]);
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const q = Math.min(1, Math.max(0, p));
+      const x = sx + (ex - sx) * q;
+      const y = sy + (ey - sy) * q + Math.sin(q * Math.PI + seed) * 8;
+      drawProteinFragment(x, y, seed);
+
+      if (p > 0.72) {
+        ctx.globalAlpha = Math.min(1, (p - 0.72) / 0.28);
+        ctx.fillStyle = "#ffd84f";
+        ctx.strokeStyle = "rgba(255,255,255,0.72)";
+        ctx.lineWidth = 1.5;
+        const a = seed;
+        ctx.save();
+        ctx.translate(toX + Math.cos(a) * 20, toY + Math.sin(a) * 17);
+        ctx.rotate(a * 0.4);
+        ctx.beginPath();
+        ctx.rect(-5, -5, 10, 10);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function drawPresentationLymphocyte(x, y, seed, active, color) {
+      ctx.save();
+      ctx.translate(x, y);
+      const pulse = active ? 1 + Math.sin(performance.now() * 0.012 + seed) * 0.08 : 1;
+      const r = 25 * pulse;
+      ctx.globalAlpha = active ? 1 : 0.42;
+      ctx.shadowColor = active ? color : "rgba(92,243,255,0.18)";
+      ctx.shadowBlur = active ? 22 : 4;
+      ctx.fillStyle = active ? "rgba(216,249,255,0.96)" : "rgba(100,126,150,0.46)";
+      ctx.strokeStyle = active ? color : "rgba(160,180,200,0.28)";
+      ctx.lineWidth = active ? 3.5 : 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = active ? color : "rgba(84,96,120,0.55)";
+      ctx.beginPath();
+      ctx.arc(-r * 0.18, -r * 0.10, r * 0.26, 0, Math.PI * 2);
+      ctx.arc(r * 0.18, r * 0.15, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      if (active) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 8 + Math.sin(performance.now() * 0.016 + seed) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#ffd84f";
+        ctx.font = "900 12px Inter, Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("ATIVO", 0, -r - 18);
+      }
+      ctx.restore();
+    }
+
+    function dendriticArmPoint(x, y, index, t, reach = 1) {
+      const a = (index / 9) * Math.PI * 2 + Math.sin(t * 5) * 0.2;
+      return {
+        x: x + Math.cos(a) * 66 * reach,
+        y: y + Math.sin(a) * 66 * reach,
+        angle: a,
+      };
+    }
+
+    function drawDendriticCell(x, y, t, antigenLoad = 0, antigenCount = 9) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.strokeStyle = "rgba(92,243,255,0.86)";
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2 + Math.sin(t * 5) * 0.2;
+        const endX = Math.cos(a) * 66;
+        const endY = Math.sin(a) * 66;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * 18, Math.sin(a) * 18);
+        ctx.quadraticCurveTo(Math.cos(a + 0.35) * 42, Math.sin(a + 0.35) * 42, endX, endY);
+        ctx.stroke();
+        const armLoad = Math.min(1, Math.max(0, antigenLoad * 1.35 - i * 0.11));
+        if (armLoad > 0 && i < antigenCount) {
+          ctx.save();
+          ctx.globalAlpha = armLoad;
+          ctx.translate(endX, endY);
+          ctx.rotate(a + t);
+          ctx.shadowColor = "#ffd84f";
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = "#ffd84f";
+          ctx.strokeStyle = "rgba(255,255,255,0.72)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.rect(-5.5, -5.5, 11, 11);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+      ctx.fillStyle = "#d8f9ff";
+      ctx.strokeStyle = "#5cf3ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#a87cff";
+      ctx.beginPath();
+      ctx.arc(-6, -3, 7, 0, Math.PI * 2);
+      ctx.arc(8, 6, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function chemokinePathPoint(u, y) {
+      const x = width * (0.12 + u * 0.76);
+      const wave = Math.sin(u * Math.PI * 2.1) * 34 + Math.sin(u * Math.PI * 4.2) * 10;
+      return { x, y: y + wave };
+    }
+
+    function drawChemokineTrailArrow(x1, y1, x2, y2) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(70,245,168,0.40)";
+      ctx.fillStyle = "rgba(70,245,168,0.55)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      const a = Math.atan2(y2 - y1, x2 - x1);
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - Math.cos(a - 0.55) * 10, y2 - Math.sin(a - 0.55) * 10);
+      ctx.lineTo(x2 - Math.cos(a + 0.55) * 10, y2 - Math.sin(a + 0.55) * 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSmallLymphocyte(x, y, seed, size = 14) {
+      ctx.save();
+      ctx.translate(x, y);
+      const pulse = 1 + Math.sin(performance.now() * 0.004 + seed) * 0.05;
+      const r = size * pulse;
+      ctx.shadowColor = seed % 5 === 0 ? "#46f5a8" : "#5cf3ff";
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = seed % 5 === 0 ? "rgba(204,255,232,0.94)" : "rgba(216,249,255,0.92)";
+      ctx.strokeStyle = seed % 5 === 0 ? "#46f5a8" : "#5cf3ff";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = seed % 5 === 0 ? "#46f5a8" : "#6f8dff";
+      ctx.beginPath();
+      ctx.arc(-r * 0.18, -r * 0.08, r * 0.28, 0, Math.PI * 2);
+      ctx.arc(r * 0.18, r * 0.14, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#071020";
+      ctx.font = `900 ${Math.max(8, r * 0.34)}px Inter, Segoe UI, Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(seed % 5 === 0 ? "NK" : "L", 0, 1);
+      ctx.restore();
+    }
+
+    function drawSignalSpark(x, y, seed) {
+      ctx.fillStyle = seed % 2 ? "#46f5a8" : "#5cf3ff";
+      ctx.beginPath();
+      ctx.arc(x, y, 4 + (seed % 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawMhcMarker(x, y) {
+      ctx.strokeStyle = "#5cf3ff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y);
+      ctx.lineTo(x - 2, y - 8);
+      ctx.lineTo(x + 4, y);
+      ctx.lineTo(x + 10, y - 8);
+      ctx.stroke();
+    }
+
+    function drawNkCell(x, y, r, t) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = "#d8f9ff";
+      ctx.strokeStyle = "#46f5a8";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2;
+        const rr = r * (1 + Math.sin(t * 10 + i) * 0.08);
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#46f5a8";
+      ctx.font = `900 ${Math.max(14, r * 0.52)}px Inter, Segoe UI, Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("NK", 0, 1);
+      ctx.restore();
+    }
+
+    function drawMissionTitle(t) {
+      if (width < 700) return;
+      const a = Math.min(1, (t - 0.58) / 0.25);
+      ctx.save();
+      ctx.globalAlpha = a;
+      const boxW = Math.min(width * 0.86, 720);
+      const boxH = Math.min(140, height * 0.22);
+      const boxX = (width - boxW) / 2;
+      const boxY = Math.max(88, height * 0.14);
+      ctx.fillStyle = "rgba(4,10,24,0.78)";
+      roundRect(ctx, boxX, boxY, boxW, boxH, 18);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(92,243,255,0.32)";
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, boxX, boxY, boxW, boxH, 18);
+      ctx.stroke();
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#46f5a8";
+      ctx.font = `900 ${Math.min(28, width * 0.055)}px Inter, Segoe UI, Arial`;
+      ctx.fillText("MISSÃO INICIADA", width / 2, boxY + 42);
+      ctx.fillStyle = "#f4f8ff";
+      ctx.font = `900 ${Math.min(22, width * 0.044)}px Inter, Segoe UI, Arial`;
+      ctx.fillText("NATURAL KILLER VS TUMOR", width / 2, boxY + 80);
+      ctx.fillStyle = "#c9d7ea";
+      ctx.font = `700 ${Math.min(13, width * 0.028)}px Inter, Segoe UI, Arial`;
+      ctx.fillText("Objetivo: eliminar as células tumorais antes que dominem o organismo.", width / 2, boxY + 112);
+      ctx.restore();
+    }
+    function drawPatientOpening(t) {
+      const zoom = 1 + smoothstep(t) * 1.35;
+      ctx.save();
+      ctx.translate(width / 2, height * 0.56);
+      ctx.scale(zoom, zoom);
+
+      ctx.fillStyle = "rgba(7, 16, 30, 0.96)";
+      ctx.strokeStyle = "rgba(92, 243, 255, 0.18)";
+      ctx.lineWidth = 2 / zoom;
+      roundRect(ctx, -width * 0.38, -height * 0.24, width * 0.76, height * 0.44, 22 / zoom);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(92, 243, 255, 0.14)";
+      roundRect(ctx, -width * 0.31, height * 0.02, width * 0.62, height * 0.10, 18 / zoom);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(216, 249, 255, 0.34)";
+      ctx.lineWidth = 3 / zoom;
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.28, height * 0.12);
+      ctx.lineTo(width * 0.28, height * 0.12);
+      ctx.stroke();
+
+      ctx.fillStyle = "#f2c8b7";
+      ctx.beginPath();
+      ctx.arc(-width * 0.20, -height * 0.02, 24 / zoom, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#d8f9ff";
+      roundRect(ctx, -width * 0.17, -height * 0.05, width * 0.35, height * 0.08, 28 / zoom);
+      ctx.fill();
+      ctx.fillStyle = "rgba(40, 169, 255, 0.48)";
+      roundRect(ctx, -width * 0.12, -height * 0.035, width * 0.28, height * 0.05, 18 / zoom);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(244, 248, 255, 0.80)";
+      ctx.lineWidth = 5 / zoom;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.02, height * 0.02);
+      ctx.lineTo(width * 0.12, height * 0.07);
+      ctx.moveTo(-width * 0.07, height * 0.02);
+      ctx.lineTo(-width * 0.19, height * 0.07);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(70,245,168,0.85)";
+      ctx.lineWidth = 2.5 / zoom;
+      ctx.beginPath();
+      ctx.arc(width * 0.03, -height * 0.01, 34 / zoom, -0.2, Math.PI * 1.35);
+      ctx.stroke();
+
+      if (t > 0.48) {
+        const z = (t - 0.48) / 0.52;
+        const ox = width * 0.06;
+        const oy = -height * 0.005;
+        ctx.globalAlpha = Math.min(1, z * 1.7);
+        ctx.fillStyle = "rgba(255, 245, 205, 0.88)";
+        ctx.strokeStyle = "rgba(255, 216, 79, 0.88)";
+        ctx.lineWidth = 3 / zoom;
+        ctx.beginPath();
+        ctx.ellipse(ox, oy, (26 + z * 54) / zoom, (10 + z * 22) / zoom, -0.18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "rgba(210, 70, 82, 0.72)";
+        ctx.beginPath();
+        ctx.ellipse(ox, oy, (10 + z * 20) / zoom, (4 + z * 10) / zoom, -0.18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function drawBoneMarrowScene(t) {
+      ctx.fillStyle = "#201014";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 238, 193, 0.92)";
+      ctx.beginPath();
+      ctx.ellipse(width * 0.5, height * 0.52, width * 0.46, height * 0.28, -0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#3a1220";
+      ctx.beginPath();
+      ctx.ellipse(width * 0.5, height * 0.52, width * 0.34, height * 0.20, -0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,216,79,0.58)";
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      for (let i = 0; i < 28; i++) {
+        const x = (i * 67 + Math.sin(i) * 24) % width;
+        const y = height * 0.36 + ((i * 43) % Math.floor(height * 0.34));
+        ctx.fillStyle = i % 3 === 0 ? "rgba(255,205,135,0.34)" : "rgba(255,92,134,0.24)";
+        ctx.beginPath();
+        ctx.arc(x, y, 16 + (i % 5) * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = "rgba(255,216,79,0.35)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.2, height * 0.68);
+      ctx.bezierCurveTo(width * 0.34, height * 0.44, width * 0.5, height * 0.74, width * 0.7, height * 0.44);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(70,245,168,0.8)";
+      ctx.beginPath();
+      ctx.arc(width * 0.34, height * 0.64, 10 + t * 26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBodyTravelScene(t) {
+      ctx.fillStyle = "#13091d";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(92,243,255,0.38)";
+      ctx.lineWidth = 10;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(width * 0.08, height * 0.5);
+      ctx.bezierCurveTo(width * 0.28, height * 0.25, width * 0.52, height * 0.75, width * 0.88, height * 0.42);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,79,154,0.24)";
+      ctx.lineWidth = 28;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.08, height * 0.58);
+      ctx.bezierCurveTo(width * 0.28, height * 0.82, width * 0.55, height * 0.32, width * 0.92, height * 0.56);
+      ctx.stroke();
+      for (let i = 0; i < 11; i++) {
+        const x = width * ((i / 11 + t * 0.9) % 1);
+        const y = height * 0.55 + Math.sin(i + t * 8) * height * 0.08;
+        ctx.fillStyle = "rgba(255,80,110,0.6)";
+        ctx.beginPath();
+        ctx.ellipse(x, y, 19, 11, t * 4 + i, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawLymphNodeScene(t) {
+      ctx.fillStyle = "#071221";
+      ctx.fillRect(0, 0, width, height);
+      const lx = width * 0.54;
+      const ly = height * 0.50;
+      const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, Math.min(width, height) * 0.28);
+      lg.addColorStop(0, "rgba(92,243,255,0.34)");
+      lg.addColorStop(0.55, "rgba(40,169,255,0.20)");
+      lg.addColorStop(1, "rgba(92,243,255,0.02)");
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, width * 0.24, height * 0.18, 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(92,243,255,0.46)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      const ax = width * (0.20 + t * 0.32);
+      const ay = height * (0.36 + Math.sin(t * Math.PI) * 0.05);
+      ctx.fillStyle = "#ffd84f";
+      ctx.beginPath();
+      ctx.arc(ax, ay, 9, 0, Math.PI * 2);
+      ctx.fill();
+      if (t > 0.55) {
+        ctx.strokeStyle = "rgba(70,245,168,0.95)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 38 + Math.sin(t * 24) * 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function drawBloodstreamScene(t) {
+      const centerY = height * 0.52;
+      const grad = ctx.createLinearGradient(0, 0, width, height);
+      grad.addColorStop(0, "#250512");
+      grad.addColorStop(0.5, "#7c1230");
+      grad.addColorStop(1, "#180411");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(255, 120, 160, 0.38)";
+      ctx.lineWidth = 7;
+      for (let i = 0; i < 10; i++) {
+        const x = ((i / 10) * width - t * width * 2.6) % width;
+        ctx.beginPath();
+        ctx.moveTo(x, centerY - height * 0.22);
+        ctx.lineTo(x + 120, centerY + height * 0.22);
+        ctx.stroke();
+      }
+      for (let i = 0; i < 18; i++) {
+        const x = (width - ((t * 1500 + i * 90) % (width + 120)));
+        const y = centerY + Math.sin(i * 1.7 + t * 18) * height * 0.22;
+        ctx.fillStyle = "rgba(255,80,110,0.72)";
+        ctx.beginPath();
+        ctx.ellipse(x, y, 22, 13, t * 8 + i, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawIntroCaption(progress) {
+      const story = getIntroStory(progress);
+      ctx.save();
+      const mobileIntro = width < 700;
+      const boxW = Math.min(width * (mobileIntro ? 0.90 : 0.90), 760);
+      const boxX = (width - boxW) / 2;
+      const boxH = mobileIntro ? 126 : (height < 560 ? 126 : 154);
+      const y = mobileIntro
+        ? Math.max(134, height * 0.19)
+        : Math.min(height - boxH - 26, Math.max(118, height * 0.62));
+      ctx.fillStyle = mobileIntro ? "rgba(4,10,24,0.74)" : "rgba(4,10,24,0.84)";
+      roundRect(ctx, boxX, y, boxW, boxH, 18);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(92,243,255,0.32)";
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, boxX, y, boxW, boxH, 18);
+      ctx.stroke();
+
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#5cf3ff";
+      ctx.font = `900 ${mobileIntro ? 11 : Math.min(13, Math.max(10, width * 0.026))}px Inter, Segoe UI, Arial`;
+      ctx.fillText(story.scene.toUpperCase(), boxX + 18, y + 14, boxW - 36);
+
+      ctx.fillStyle = "#f4f8ff";
+      ctx.font = `900 ${mobileIntro ? 18 : Math.min(22, Math.max(16, width * 0.044))}px Inter, Segoe UI, Arial`;
+      ctx.fillText(story.title, boxX + 18, y + 34, boxW - 36);
+
+      ctx.fillStyle = story.accent || "#46f5a8";
+      ctx.font = `800 ${mobileIntro ? 14 : Math.min(17, Math.max(13, width * 0.033))}px Inter, Segoe UI, Arial`;
+      wrapTextBlock(ctx, story.narration, boxX + 18, y + 62, boxW - 36, mobileIntro ? 19 : Math.min(22, Math.max(17, width * 0.039)), mobileIntro ? 2 : 2, false);
+
+      if (!mobileIntro) {
+        ctx.fillStyle = "#c9d7ea";
+        ctx.font = `700 ${Math.min(14, Math.max(11, width * 0.028))}px Inter, Segoe UI, Arial`;
+        wrapTextBlock(ctx, story.detail, boxX + 20, y + (height < 560 ? 104 : 116), boxW - 40, Math.min(18, Math.max(14, width * 0.034)), height < 560 ? 1 : 2, false);
+      }
+      ctx.restore();
+    }
+    function getIntroStory(progress) {
+      if (progress < 0.14) {
+        return {
+          scene: "Cena 1 - O paciente",
+          title: "Uma ameaça silenciosa",
+          narration: "Em algum lugar dentro deste paciente, uma ameaça está crescendo.",
+          detail: "Dentro do tecido pulmonar, células alteradas começam a formar uma massa tumoral silenciosa.",
+          accent: "#5cf3ff",
+        };
+      }
+      if (progress < 0.28) {
+        return {
+          scene: "Cena 2 - O inimigo",
+          title: "O câncer deixa pistas",
+          narration: "Mas o câncer deixou pistas para trás que podem ser encontradas pela célula investigadora.",
+          detail: "Células tumorais se multiplicam; algumas morrem e liberam fragmentos de proteínas tumorais no tecido.",
+          accent: "#ff78c9",
+        };
+      }
+      if (progress < 0.42) {
+        return {
+          scene: "Cena 3 - A investigadora",
+          title: "A célula dendrítica encontra o sinal",
+          narration: "As células dendríticas são as investigadoras do sistema imunológico.",
+          detail: "Ela captura antígenos tumorais e viaja pelos vasos linfáticos levando a evidência para o linfonodo.",
+          accent: "#ffd84f",
+        };
+      }
+      if (progress < 0.58) {
+        return {
+          scene: "Cena 4 - O linfonodo",
+          title: "O alerta foi enviado",
+          narration: "No linfonodo, a célula dendrítica apresenta os antígenos tumorais.",
+          detail: "Linfócitos circulam, sinais luminosos representam citocinas e a resposta imune começa a se organizar.",
+          accent: "#46f5a8",
+        };
+      }
+      if (progress < 0.70) {
+        return {
+          scene: "Cena 5 - Convocação",
+          title: "O exército imunológico se move",
+          narration: "O exército imunológico foi convocado.",
+          detail: "Quimiocinas formam trilhas luminosas para guiar as células de defesa até o foco tumoral.",
+          accent: "#5cf3ff",
+        };
+      }
+      if (progress < 0.84) {
+        return {
+          scene: "Cena 6 - O tumor se esconde",
+          title: "Camuflagem tumoral",
+          narration: "Para sobreviver, algumas células tumorais tentam se esconder.",
+          detail: "Elas perdem MHC I, ficam escuras e escapam melhor dos linfócitos T. Isso chama a atenção da NK.",
+          accent: "#a87cff",
+        };
+      }
+      return {
+        scene: "Cena 7 - Entrada da heroína",
+        title: "Natural Killer vs Tumor",
+        narration: "Existe uma guerreira especializada em encontrar quem tenta se esconder.",
+        detail: "MISSÃO INICIADA. Objetivo: eliminar as células tumorais antes que dominem o organismo.",
+        accent: "#46f5a8",
+      };
+    }
+    function wrapTextBlock(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+      const words = text.split(" ");
+      let line = "";
+      const lines = [];
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+          if (lines.length >= maxLines) break;
+        } else {
+          line = test;
+        }
+      }
+      if (line && lines.length < maxLines) lines.push(line);
+      if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
+        lines[lines.length - 1] = `${lines[lines.length - 1].replace(/[,.]$/, "")}...`;
+      }
+      lines.forEach((item, index) => ctx.fillText(item, x, y + index * lineHeight, maxWidth));
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = "#160916";
+      ctx.fillRect(0, 0, width, height);
+
+      const tissue = ctx.createRadialGradient(width * 0.5, height * 0.48, 0, width * 0.5, height * 0.48, Math.max(width, height) * 0.72);
+      tissue.addColorStop(0, "rgba(98, 28, 64, 0.94)");
+      tissue.addColorStop(0.46, "rgba(42, 18, 48, 0.96)");
+      tissue.addColorStop(1, "rgba(8, 8, 25, 1)");
+      ctx.fillStyle = tissue;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "rgba(255, 120, 170, 0.18)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 18; i++) {
+        const y = (i / 18) * height + Math.sin(i) * 16;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(width * 0.22, y - 44, width * 0.42, y + 54, width * 0.64, y + 8);
+        ctx.bezierCurveTo(width * 0.78, y - 28, width * 0.88, y + 34, width, y - 12);
+        ctx.stroke();
+      }
+
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      for (let i = 0; i < 4; i++) {
+        const x = width * (0.18 + i * 0.22) + Math.sin(performance.now() * 0.0005 + i) * 18;
+        const y = height * (0.28 + (i % 2) * 0.28);
+        const g = ctx.createRadialGradient(x, y, 0, x, y, Math.min(width, height) * 0.18);
+        g.addColorStop(0, "rgba(56, 0, 62, 0.38)");
+        g.addColorStop(0.55, "rgba(92, 0, 82, 0.16)");
+        g.addColorStop(1, "rgba(56, 0, 62, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, Math.min(width, height) * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = "rgba(255, 49, 95, 0.30)";
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      for (let i = 0; i < 3; i++) {
+        const baseY = height * (0.34 + i * 0.18);
+        ctx.beginPath();
+        ctx.moveTo(width * 0.05, baseY);
+        ctx.bezierCurveTo(width * 0.25, baseY - 42, width * 0.42, baseY + 52, width * 0.64, baseY + 8);
+        ctx.bezierCurveTo(width * 0.74, baseY - 20, width * 0.82, baseY + 28, width * 0.94, baseY - 4);
+        ctx.stroke();
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.54, baseY + 8);
+        ctx.quadraticCurveTo(width * 0.62, baseY + 52, width * 0.72, baseY + 38);
+        ctx.stroke();
+        ctx.lineWidth = 5;
+      }
+
+      for (let i = 0; i < 7; i++) {
+        const x = (i * 97 + performance.now() * 0.006) % (width + 80) - 40;
+        const y = height * (0.24 + ((i * 0.17) % 0.54));
+        ctx.fillStyle = "rgba(120, 132, 154, 0.28)";
+        ctx.strokeStyle = "rgba(168, 124, 255, 0.20)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, 9 + (i % 3) * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "rgba(216, 249, 255, 0.28)";
+        ctx.beginPath();
+        ctx.arc(x - 3, y - 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      for (const cell of stars) {
+        ctx.globalAlpha = cell.a * 0.55;
+        ctx.fillStyle = cell.a > 0.55 ? "rgba(255, 152, 187, 0.36)" : "rgba(92, 243, 255, 0.18)";
+        ctx.beginPath();
+        ctx.arc(cell.x, cell.y, cell.s * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      if (player.invulnerable > 0) ctx.globalAlpha = 0.65 + Math.sin(performance.now() * 0.03) * 0.25;
+
+      if (combatTime > 0) {
+        const pulse = 1 + Math.sin(performance.now() * 0.018) * 0.08;
+        const aura = ctx.createRadialGradient(0, 0, player.radius * 0.6, 0, 0, player.radius * 3.2 * pulse);
+        aura.addColorStop(0, "rgba(92, 243, 255, 0.34)");
+        aura.addColorStop(0.52, "rgba(168, 124, 255, 0.22)");
+        aura.addColorStop(1, "rgba(168, 124, 255, 0)");
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius * 3.2 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(92, 243, 255, 0.62)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          const a = performance.now() * 0.002 + i * Math.PI * 0.66;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * 25, Math.sin(a) * 18, 3.2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = "#d8f9ff";
+      ctx.strokeStyle = "#46f5a8";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#6f8dff";
+      ctx.beginPath();
+      ctx.arc(-7, -3, 5, 0, Math.PI * 2);
+      ctx.arc(6, -4, 4.5, 0, Math.PI * 2);
+      ctx.arc(2, 7, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#071020";
+      ctx.font = "900 11px Inter, Segoe UI, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("NK", 0, 1);
+
+      ctx.strokeStyle = "#5cf3ff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, player.radius + 7, -Math.PI * 0.12, Math.PI * 1.12);
+      ctx.stroke();
+
+      if (shieldTime > 0) {
+        ctx.strokeStyle = "rgba(92, 243, 255, 0.92)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius + 15 + Math.sin(performance.now() * 0.012) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawAntibody(shot) {
+      ctx.save();
+      ctx.translate(shot.x, shot.y);
+      if (shot.heal) {
+        ctx.shadowColor = "#46f5a8";
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = "#46f5a8";
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        const s = shot.size * 0.62;
+        ctx.beginPath();
+        ctx.moveTo(-s, 0);
+        ctx.lineTo(s, 0);
+        ctx.moveTo(0, -s);
+        ctx.lineTo(0, s);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(70, 245, 168, 0.16)";
+        ctx.beginPath();
+        ctx.arc(0, 0, shot.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      if (shot.marker) {
+        ctx.globalAlpha = shot.delay && shot.delay > 0 ? 0 : 1;
+        ctx.shadowColor = "#ffd84f";
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = "#ffd84f";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        const s = shot.size;
+        ctx.beginPath();
+        ctx.moveTo(0, s * 0.62);
+        ctx.lineTo(0, -s * 0.08);
+        ctx.lineTo(-s * 0.52, -s * 0.58);
+        ctx.moveTo(0, -s * 0.08);
+        ctx.lineTo(s * 0.52, -s * 0.58);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+      if (shot.nkToxin) {
+        const pulse = 1 + Math.sin(performance.now() * 0.018 + shot.y) * 0.12;
+        ctx.shadowColor = "#a87cff";
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = "rgba(168, 124, 255, 0.22)";
+        ctx.beginPath();
+        ctx.arc(0, 0, shot.size * 1.9 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#a87cff";
+        ctx.strokeStyle = "#ff78c9";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, shot.size * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.66)";
+        ctx.beginPath();
+        ctx.arc(-shot.size * 0.22, -shot.size * 0.28, shot.size * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      ctx.strokeStyle = shot.cytokine ? "#5cf3ff" : "#46f5a8";
+      ctx.lineWidth = shot.cytokine ? 3 : 2.5;
+      ctx.lineCap = "round";
+      const s = shot.size;
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.6);
+      ctx.lineTo(0, -s * 0.12);
+      ctx.lineTo(-s * 0.48, -s * 0.62);
+      ctx.moveTo(0, -s * 0.12);
+      ctx.lineTo(s * 0.48, -s * 0.62);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawCancerCell(enemy) {
+      ctx.save();
+      ctx.translate(enemy.x, enemy.y);
+      if (enemy.dead) {
+        const dry = Math.min(1, (enemy.corpseAge || 0) / 0.8);
+        const r = Math.max(4, enemy.r * (1 - dry * 0.35));
+        ctx.rotate(Math.sin(enemy.phase) * 0.12);
+        ctx.shadowColor = "rgba(217, 137, 95, 0.42)";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = `rgba(158, 98, 76, ${0.96 - dry * 0.12})`;
+        ctx.strokeStyle = "rgba(217, 137, 95, 0.95)";
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * Math.PI * 2;
+          const wrinkle = 1 + Math.sin(i * 2.1 + enemy.phase) * 0.18 - dry * 0.18;
+          const px = Math.cos(a) * r * wrinkle;
+          const py = Math.sin(a) * r * (0.72 + Math.cos(i * 1.7) * 0.12) * wrinkle;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "rgba(80, 45, 50, 0.55)";
+        for (let i = 0; i < 4; i++) {
+          const a = enemy.phase + i * 1.75;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * r * 0.36, Math.sin(a) * r * 0.22, Math.max(2.2, r * 0.09), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(48, 24, 25, 0.62)";
+        ctx.lineWidth = 1.6;
+        for (let i = -2; i <= 2; i++) {
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.55, i * r * 0.14);
+          ctx.quadraticCurveTo(0, i * r * 0.08 - r * 0.14, r * 0.55, i * r * 0.12);
+          ctx.stroke();
+        }
+        ctx.restore();
+        return;
+      }
+      if (enemy.type === "healthy") {
+        const pulse = 1 + Math.sin(enemy.phase * 6) * 0.04;
+        ctx.fillStyle = "#d8f9ff";
+        ctx.strokeStyle = "#46f5a8";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "rgba(70, 245, 168, 0.62)";
+        ctx.beginPath();
+        ctx.arc(-enemy.r * 0.25, -enemy.r * 0.12, enemy.r * 0.18, 0, Math.PI * 2);
+        ctx.arc(enemy.r * 0.18, enemy.r * 0.18, enemy.r * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(216, 249, 255, 0.72)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r * 1.35, -Math.PI * 0.25, Math.PI * 1.15);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+      const spikes = enemy.type === "large" ? 14 : 10;
+      const isHidden = enemy.hidden || enemy.camouflaged;
+      if (isHidden) {
+        ctx.globalAlpha = 0.54;
+        ctx.shadowColor = "rgba(48, 38, 64, 0.75)";
+        ctx.shadowBlur = 18;
+      }
+      if (enemy.detected > 0) {
+        ctx.shadowColor = "#ff315f";
+        ctx.shadowBlur = 20;
+      }
+      if (enemy.adccMarked > 0) {
+        ctx.shadowColor = "#ffd84f";
+        ctx.shadowBlur = 22;
+      }
+      ctx.strokeStyle = isHidden ? "#5d557c" : enemy.type === "subcell" ? "#ff72b4" : "#ffb347";
+      ctx.lineWidth = enemy.type === "large" ? 3 : 2;
+      for (let i = 0; i < spikes; i++) {
+        const a = (i / spikes) * Math.PI * 2 + enemy.phase * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * enemy.r * 0.72, Math.sin(a) * enemy.r * 0.72);
+        ctx.lineTo(Math.cos(a) * enemy.r * 1.25, Math.sin(a) * enemy.r * 1.25);
+        ctx.stroke();
+      }
+      ctx.fillStyle = isHidden ? "#242234" : enemy.type === "large" ? "#a87cff" : enemy.type === "subcell" ? "#ff78c9" : "#ff4f9a";
+      ctx.strokeStyle = enemy.detected > 0 ? "#ff315f" : enemy.adccMarked > 0 ? "#ffd84f" : isHidden ? "#5d557c" : "#ffd84f";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, enemy.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "rgba(2,7,22,0.36)";
+      for (let i = 0; i < 5; i++) {
+        const a = enemy.phase + i * 1.7;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * enemy.r * 0.38, Math.sin(a) * enemy.r * 0.32, enemy.r * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (enemy.adccMarked > 0) {
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "#ffd84f";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r + 8 + Math.sin(performance.now() * 0.012) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.font = `900 ${Math.max(10, enemy.r * 0.46)}px Inter, Segoe UI, Arial`;
+        ctx.fillStyle = "#ffd84f";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Y", 0, -enemy.r - 14);
+      }
+      if (enemy.detected > 0) {
+        ctx.globalAlpha = 0.86;
+        ctx.strokeStyle = "#ff315f";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(0, 0, enemy.r + 14, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (enemy.maxHp > 1) drawMiniHealth(-enemy.r, enemy.r + 10, enemy.r * 2, enemy.hp / enemy.maxHp);
+      ctx.restore();
+    }
+
+    function drawMacrophage(mac) {
+      ctx.save();
+      ctx.translate(mac.x, mac.y);
+      const pulse = Math.sin(mac.phase) * 0.14;
+      const targetAngle = mac.target ? Math.atan2(mac.target.y - mac.y, mac.target.x - mac.x) : 0;
+      ctx.save();
+      ctx.translate(0, -mac.r - 18);
+      ctx.fillStyle = "rgba(4, 10, 24, 0.68)";
+      roundRect(ctx, -58, -16, 116, 24, 12);
+      ctx.fill();
+      ctx.fillStyle = "#5cf3ff";
+      ctx.font = "800 11px Inter, Segoe UI, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("macrófago ativo", 0, -4);
+      ctx.restore();
+      ctx.rotate(pulse * 0.25);
+      ctx.fillStyle = "rgba(230, 241, 255, 0.92)";
+      ctx.strokeStyle = "rgba(92, 243, 255, 0.72)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2;
+        const reach = Math.cos(a - targetAngle) > 0.78 ? 1.52 : 1;
+        const blob = 1 + Math.sin(mac.phase + i * 1.4) * 0.16;
+        const rr = mac.r * blob * reach;
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr * (0.84 + Math.cos(mac.phase + i) * 0.06);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "rgba(92, 243, 255, 0.42)";
+      ctx.beginPath();
+      ctx.arc(-mac.r * 0.22, -mac.r * 0.1, mac.r * 0.22, 0, Math.PI * 2);
+      ctx.arc(mac.r * 0.18, mac.r * 0.14, mac.r * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+      if (mac.eating > 0) {
+        ctx.strokeStyle = "rgba(70, 245, 168, 0.72)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, mac.r * (1.25 + Math.sin(mac.phase * 2) * 0.08), targetAngle - 0.9, targetAngle + 0.9);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawBossBeam() {
+      if (!boss) return;
+      ctx.save();
+      const charging = bossBeam > 0.72;
+      const startX = boss.x;
+      const startY = boss.y + boss.r * 0.42;
+      const endX = bossBeamX;
+      const endY = height + 20;
+      ctx.lineCap = "round";
+      ctx.globalAlpha = charging ? 0.36 : 0.42;
+      ctx.strokeStyle = charging ? "#ffd84f" : "#ff4f9a";
+      ctx.lineWidth = charging ? 12 : 46;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.globalAlpha = charging ? 0.78 : 0.95;
+      ctx.strokeStyle = charging ? "#fff2a8" : "#ff78bd";
+      ctx.lineWidth = charging ? 4 : 18;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = charging ? "#ffd84f" : "#ff4f9a";
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = charging ? 18 : 34;
+      ctx.beginPath();
+      ctx.arc(startX, startY, charging ? 12 : 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    function drawBoss() {
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+      if (boss.adccMarked > 0) {
+        ctx.shadowColor = "#ffd84f";
+        ctx.shadowBlur = 28;
+      }
+      const tentacles = boss.stage === 3 ? 16 : 10;
+      ctx.strokeStyle = boss.stage === 3 ? "rgba(255, 204, 79, 0.82)" : "rgba(255,79,154,0.78)";
+      ctx.lineWidth = boss.stage === 3 ? 11 : 8;
+      ctx.lineCap = "round";
+      for (let i = 0; i < tentacles; i++) {
+        const a = (i / tentacles) * Math.PI * 2 + boss.tentacleSpin * 0.8;
+        const r1 = boss.r * 0.72;
+        const r2 = boss.r * (1.35 + 0.14 * Math.sin(boss.tentacleSpin * 2 + i));
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.quadraticCurveTo(
+          Math.cos(a + 0.45) * boss.r * 1.05,
+          Math.sin(a + 0.45) * boss.r * 1.05,
+          Math.cos(a + 0.2) * r2,
+          Math.sin(a + 0.2) * r2
+        );
+        ctx.stroke();
+      }
+
+      const grad = ctx.createRadialGradient(-boss.r * 0.25, -boss.r * 0.25, 4, 0, 0, boss.r * (boss.stage === 3 ? 1.18 : 1));
+      grad.addColorStop(0, boss.stage === 3 ? "#ffe06f" : "#ff9bc4");
+      grad.addColorStop(0.5, boss.stage === 2 ? "#5cf3ff" : "#ff4f9a");
+      grad.addColorStop(1, boss.stage === 3 ? "#8a2400" : "#7d1457");
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = "#ffd84f";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, boss.r * (boss.stage === 3 ? 1.18 : 1), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(2,7,22,0.34)";
+      for (let i = 0; i < 10; i++) {
+        const a = boss.tentacleSpin + i * 1.9;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * boss.r * 0.42, Math.sin(a) * boss.r * 0.37, boss.r * 0.09, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      drawBossHealth(-boss.r, boss.r + 18, boss.r * 2, boss.hp / boss.maxHp, boss.stage);
+      if (boss.adccMarked > 0) {
+        ctx.strokeStyle = "#ffd84f";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, boss.r * 1.32 + Math.sin(performance.now() * 0.012) * 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#ffd84f";
+        ctx.font = "900 18px Inter, Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("ADCC", 0, -boss.r * 1.45);
+      }
+      ctx.restore();
+    }
+
+    function drawTCell() {
+      ctx.save();
+      ctx.translate(tCell.x, tCell.y);
+      if (tCell.type === "plasmocyte") {
+        const pulse = 1 + Math.sin(performance.now() * 0.012) * 0.05;
+        ctx.shadowColor = "#ffd84f";
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = "#fff7d7";
+        ctx.strokeStyle = "#ffd84f";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 24 * pulse, 18 * pulse, Math.sin(tCell.phase) * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#a87cff";
+        ctx.beginPath();
+        ctx.arc(-5, -2, 6, 0, Math.PI * 2);
+        ctx.arc(8, 4, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#071020";
+        ctx.font = "900 12px Inter, Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("P", 0, 1);
+        ctx.fillStyle = "#ffd84f";
+        ctx.font = "800 10px Inter, Segoe UI, Arial";
+        ctx.fillText("ADCC", 0, -28);
+        ctx.restore();
+        return;
+      }
+      ctx.fillStyle = "#f0e5ff";
+      ctx.strokeStyle = "#a87cff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 21, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#a87cff";
+      ctx.beginPath();
+      ctx.arc(-6, -4, 5, 0, Math.PI * 2);
+      ctx.arc(7, 5, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "900 13px Inter, Segoe UI, Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("T", 0, 5);
+      ctx.restore();
+    }
+
+    function drawImmuneAlly(ally) {
+      ctx.save();
+      ctx.translate(ally.x, ally.y);
+      const pulse = 1 + Math.sin(performance.now() * 0.014 + ally.phase) * 0.08;
+      ctx.shadowColor = "#5cf3ff";
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = "#d8f9ff";
+      ctx.strokeStyle = "#5cf3ff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 13 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#6f8dff";
+      ctx.beginPath();
+      ctx.arc(-3, -2, 3.4, 0, Math.PI * 2);
+      ctx.arc(4, 4, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#071020";
+      ctx.font = "900 8px Inter, Segoe UI, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("IFN", 0, 1);
+      ctx.restore();
+    }
+
+    function drawScanPulse() {
+      ctx.save();
+      const t = performance.now() * 0.001;
+      const y = ((t * 260) % (height + 180)) - 90;
+      ctx.globalCompositeOperation = "screen";
+      const grad = ctx.createLinearGradient(0, y - 34, 0, y + 34);
+      grad.addColorStop(0, "rgba(92, 243, 255, 0)");
+      grad.addColorStop(0.5, "rgba(92, 243, 255, 0.24)");
+      grad.addColorStop(1, "rgba(92, 243, 255, 0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, y - 34, width, 68);
+      ctx.strokeStyle = "rgba(92, 243, 255, 0.46)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawMiniHealth(x, y, w, ratio) {
+      ctx.fillStyle = "rgba(255,255,255,0.16)";
+      ctx.fillRect(x, y, w, 5);
+      ctx.fillStyle = ratio > 0.5 ? "#46f5a8" : "#ff4f9a";
+      ctx.fillRect(x, y, Math.max(0, w * ratio), 5);
+    }
+
+    function drawBossHealth(x, y, w, ratio, stage) {
+      const color = stage === 1 ? "#46f5a8" : stage === 2 ? "#5cf3ff" : "#ffd84f";
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(x, y, w, 7);
+      ctx.fillStyle = color;
+      const stageRatio = stage === 1 ? (ratio - 2 / 3) * 3 : stage === 2 ? (ratio - 1 / 3) * 3 : ratio * 3;
+      ctx.fillRect(x, y, Math.max(0, Math.min(1, stageRatio)) * w, 7);
+    }
+
+    function drawEnemyShot(shot) {
+      if (shot.type === "vessel") {
+        ctx.save();
+        ctx.translate(shot.x, shot.y);
+        ctx.strokeStyle = "#ff315f";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.quadraticCurveTo(12, -4, 0, 18);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        if (shot.type === "bigCytokine") {
+          const pulse = 1 + Math.sin(performance.now() * 0.012 + shot.x) * 0.12;
+          ctx.save();
+          ctx.translate(shot.x, shot.y);
+          ctx.fillStyle = "rgba(168, 124, 255, 0.20)";
+          ctx.beginPath();
+          ctx.arc(0, 0, shot.r * 2.1 * pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#a87cff";
+          ctx.strokeStyle = "#ff78c9";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, shot.r * pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.65)";
+          ctx.beginPath();
+          ctx.arc(-shot.r * 0.25, -shot.r * 0.28, shot.r * 0.22, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          return;
+        }
+        ctx.fillStyle = "#ff4f9a";
+        ctx.beginPath();
+        ctx.arc(shot.x, shot.y, shot.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawParticle(p) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSpecialWave() {
+      ctx.save();
+      ctx.globalAlpha = cytokineBurst * 0.28;
+      ctx.strokeStyle = "#5cf3ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y - 34, (1.25 - cytokineBurst) * Math.max(width, height), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawInflammationAlert() {
+      const t = Math.ceil(bossInflameWarning);
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 61, 95, 0.16)";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(255, 216, 79, 0.55)";
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 10]);
+      ctx.strokeRect(14, 92, width - 28, Math.min(132, height * 0.22));
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(4, 10, 24, 0.86)";
+      roundRect(ctx, 22, 100, width - 44, Math.min(116, height * 0.19), 18);
+      ctx.fill();
+      ctx.fillStyle = "#ffd84f";
+      ctx.font = `900 ${Math.min(24, Math.max(17, width * 0.045))}px Inter, Segoe UI, Arial`;
+      ctx.textAlign = "center";
+      ctx.fillText("ALERTA: inflamação tumoral ativada", width / 2, 132);
+      ctx.fillStyle = "#f4f8ff";
+      ctx.font = `800 ${Math.min(18, Math.max(13, width * 0.034))}px Inter, Segoe UI, Arial`;
+      ctx.fillText(`Defenda-se em ${t}s ou o golpe será letal`, width / 2, 162);
+      ctx.fillStyle = "#5cf3ff";
+      ctx.fillText("Use B: modo de combate / defesa", width / 2, 190);
+      if (boss) {
+        ctx.globalAlpha = 0.34 + Math.sin(performance.now() * 0.012) * 0.15;
+        const radius = (8 - bossInflameWarning) / 8 * Math.max(width, height) * 0.55;
+        ctx.strokeStyle = "#ffd84f";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(boss.x, boss.y, Math.max(20, radius), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawInflammationBlast() {
+      if (!boss) return;
+      ctx.save();
+      ctx.globalAlpha = bossInflameBlast * 0.36;
+      const r = (1.2 - bossInflameBlast) * Math.max(width, height) * 0.9;
+      const g = ctx.createRadialGradient(boss.x, boss.y, 0, boss.x, boss.y, Math.max(10, r));
+      g.addColorStop(0, "rgba(255, 216, 79, 0.82)");
+      g.addColorStop(0.35, "rgba(255, 79, 154, 0.42)");
+      g.addColorStop(1, "rgba(255, 79, 154, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, Math.max(10, r), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+    }
+
+    function drawFirework(fw) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - fw.t / 1.2);
+      ctx.strokeStyle = fw.color;
+      ctx.lineWidth = 2;
+      for (const spark of fw.sparks) {
+        const d = spark.s * fw.t;
+        ctx.beginPath();
+        ctx.moveTo(fw.x + Math.cos(spark.a) * d * 0.55, fw.y + Math.sin(spark.a) * d * 0.55);
+        ctx.lineTo(fw.x + Math.cos(spark.a) * d, fw.y + Math.sin(spark.a) * d);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function dist(x1, y1, x2, y2) {
+      return Math.hypot(x1 - x2, y1 - y2);
+    }
+
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+      return dist(px, py, x1 + t * dx, y1 + t * dy);
+    }
+
+    function smoothstep(t) {
+      const x = Math.max(0, Math.min(1, t));
+      return x * x * (3 - 2 * x);
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+      const words = text.split(" ");
+      const lines = [];
+      let line = "";
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+          if (lines.length === maxLines - 1) break;
+        } else {
+          line = test;
+        }
+      }
+      if (line) {
+        const usedWords = lines.join(" ").split(" ").filter(Boolean).length + line.split(" ").filter(Boolean).length;
+        const truncated = usedWords < words.length;
+        lines.push(truncated ? `${line.replace(/[,.]$/, "")}...` : line);
+      }
+      const startY = y - ((lines.length - 1) * lineHeight) / 2;
+      lines.slice(0, maxLines).forEach((item, index) => ctx.fillText(item, x, startY + index * lineHeight));
+    }
+
+    function loop(time) {
+      const dt = Math.min(0.033, (time - lastTime) / 1000 || 0);
+      lastTime = time;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointerdown", (event) => {
+      if (pausedByInfo) return;
+      if (event.target.closest("button")) return;
+      event.preventDefault();
+      pointerAction(event.clientX);
+    }, { passive: false });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && pausedByInfo) {
+        closeInfo();
+        return;
+      }
+      if (pausedByInfo) return;
+      keys.add(event.key);
+      if (event.key === " " || event.key === "Spacebar") {
+        event.preventDefault();
+        fireAntibody();
+      }
+      const key = event.key.toLowerCase();
+      if (key === "a") markTargetsAdcc();
+      if (key === "b") activateCombatMode();
+      if (key === "c") callReinforcements();
+      if (key === "d") activateDetector();
+    });
+    window.addEventListener("keyup", (event) => keys.delete(event.key));
+
+    startButton.addEventListener("click", () => {
+      enterFullscreen();
+      if (waitingMissionStart) beginMission();
+      else resetGame();
+    });
+    skipStoryButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      enterFullscreen();
+      resetGame(true);
+    });
+    restartButton.addEventListener("click", resetGame);
+    fullscreenButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleFullscreen();
+    });
+    infoButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openInfo();
+    });
+    closeInfoButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeInfo();
+    });
+    playAgainButton.addEventListener("click", resetGame);
+    tryAgainButton.addEventListener("click", () => {
+      lives = 3;
+      running = true;
+      phase = Math.max(6, phase);
+      restartCurrentPhase();
+    });
+    specialButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callReinforcements();
+    });
+    tCellButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      markTargetsAdcc();
+    });
+    shieldButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      activateCombatMode();
+    });
+    healButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      activateDetector();
+    });
+
+    function openInfo() {
+      if (infoOverlay.classList.contains("hidden") === false) return;
+      wasRunningBeforeInfo = running;
+      pausedByInfo = true;
+      running = false;
+      infoOverlay.classList.remove("hidden");
+      updateHud();
+    }
+
+    function closeInfo() {
+      infoOverlay.classList.add("hidden");
+      pausedByInfo = false;
+      running = wasRunningBeforeInfo;
+      lastTime = performance.now();
+      updateHud();
+    }
+
+    function getFullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+    }
+
+    function enterFullscreen() {
+      const root = document.documentElement;
+      try {
+        if (getFullscreenElement()) return;
+        const request = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+        if (request) request.call(root);
+      } catch (error) {
+        // Alguns navegadores móveis só permitem fullscreen em condições específicas.
+      }
+    }
+
+    function exitFullscreen() {
+      try {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) exit.call(document);
+      } catch (error) {
+        // Mantém o jogo funcionando mesmo se o navegador negar a saída do fullscreen.
+      }
+    }
+
+    function toggleFullscreen() {
+      if (getFullscreenElement()) exitFullscreen();
+      else enterFullscreen();
+    }
+
+    function syncFullscreenButton() {
+      fullscreenButton.textContent = getFullscreenElement() ? "×" : "⛶";
+      fullscreenButton.setAttribute("aria-label", getFullscreenElement() ? "Sair da tela cheia" : "Abrir tela cheia");
+    }
+
+    document.addEventListener("fullscreenchange", syncFullscreenButton);
+    document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
+
+    resize();
+    syncFullscreenButton();
+    draw();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
